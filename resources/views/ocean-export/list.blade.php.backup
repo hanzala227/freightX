@@ -1,0 +1,812 @@
+<x-layout>
+    @push('styles')
+    <x-list-styles />
+    @endpush
+
+    {{-- ═══════════════════════ TOAST CONTAINER ═══════════════════════ --}}
+    <div class="toast-container" id="toast-container"></div>
+
+    {{-- ═══════════════════════ MBL QUICK-VIEW MODAL ═══════════════════════ --}}
+    <div class="overlay" id="mbl-overlay" onclick="if(event.target===this) closeMbl()">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-header-title"><i class="fa fa-ship" style="color:#3b82f6;"></i> MBL Quick View</div>
+                <button class="modal-close" onclick="closeMbl()"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="mbl-body"></div>
+        </div>
+    </div>
+
+    {{-- ═══════════════════════ DELETE CONFIRM MODAL ═══════════════════════ --}}
+    <div class="overlay" id="confirm-overlay" onclick="if(event.target===this) closeConfirm()">
+        <div class="confirm-box">
+            <div class="confirm-icon"><i class="fa fa-exclamation-triangle"></i></div>
+            <h4>Delete Shipment(s)?</h4>
+            <p id="confirm-msg">This action cannot be undone.</p>
+            <div class="confirm-actions">
+                <button class="btn-tool" style="padding:0 18px;height:26px;" onclick="closeConfirm()">Cancel</button>
+                <button class="btn-tool danger" style="padding:0 18px;height:26px;" onclick="executeDelete()">
+                    <i class="fa fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ═══════════════════════ MAIN PAGE ═══════════════════════ --}}
+    <div class="page-content">
+
+        <div class="page-bar">
+            <ul class="page-breadcrumb">
+                <li><i class="fa fa-home"></i> <a href="/">Home</a> <i class="fa fa-angle-right"></i></li>
+                <li>Ocean Export <i class="fa fa-angle-right"></i></li>
+                <li><span style="color: #333; font-weight: 700;">Shipment List</span></li>
+            </ul>
+        </div>
+        
+
+        <div class="portlet light">
+
+            {{-- ── PORTLET TITLE ── --}}
+            <div class="portlet-title">
+                <div class="caption" style="display:flex;align-items:center;gap:8px;">
+                    <span class="caption-subject">My Ocean Export List</span>
+                    <span id="sel-badge" style="display:none;font-size:10px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:1px 6px;border-radius:10px;border:1px solid #bfdbfe;"></span>
+                </div>
+                <div class="actions" style="display:flex;gap:4px;position:relative;align-items:center;">
+                    <button class="btn-action-round" id="btn-filter" onclick="toggleFilter()" title="Toggle filter row">
+                        <i class="fa fa-filter"></i> Filter
+                    </button>
+                    <div style="position:relative;display:inline-flex;align-items:center;">
+                        <button class="btn-action-round" id="btn-config" onclick="toggleConfig()" title="Column visibility">
+                            <i class="fa fa-cogs"></i> Config
+                        </button>
+                        <div class="config-panel" id="config-panel" style="display:none;">
+                            <div class="config-panel-title">Column Visibility</div>
+                            <div id="col-toggles"></div>
+                        </div>
+                    </div>
+                    <a class="btn-action-round white" href="{{ route('ocean-export.export-csv') }}" title="Download as CSV/Excel" target="_blank">
+                        <i class="fa fa-file-excel-o"></i> Excel <i class="fa fa-angle-down"></i>
+                    </a>
+                </div>
+            </div>
+
+            {{-- ── TOOLBAR ── --}}
+            <div class="portlet-tool">
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <div class="btn-group">
+                        <a class="btn-tool green" href="{{ route('ocean-export.create') }}" title="New Shipment" target="_blank">
+                            <i class="fa fa-plus"></i>
+                        </a>
+                        <button class="btn-tool" id="btn-copy"   disabled title="Copy Selected (select 1 row)" onclick="copySelected()">
+                            <i class="fa fa-files-o"></i>
+                        </button>
+                        <button class="btn-tool" id="btn-delete" disabled title="Delete Selected" onclick="confirmDelete()">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 12px;" onclick="blockSelected()">Block</button>
+                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 12px;" onclick="unblockSelected()">Unblock</button>
+                    </div>
+                </div>
+                <form method="GET" action="{{ route('ocean-export.index') }}" style="display:flex;align-items:center;gap:6px;margin:0;">
+                    <i class="fa fa-search" style="font-size:10px;color:#94a3b8;"></i>
+                    <input type="text" name="search" id="quick-search" class="input-inline" style="width:160px;"
+                           placeholder="Quick search..." value="{{ request('search') }}"
+                           oninput="quickSearch(this.value)">
+                    @if(request()->has('search'))
+                        <a href="{{ route('ocean-export.index') }}" style="font-size:10px;color:#3b82f6;text-decoration:none;" target="_blank">
+                            <i class="fa fa-times-circle"></i>
+                        </a>
+                    @endif
+                    <button type="submit" style="display:none;">Search</button>
+                </form>
+            </div>
+
+            {{-- ── ADVANCED FILTER FORM ── --}}
+            <div id="advanced-filter" style="display:none;background:#f0f4ff;padding:6px 8px;border-bottom:1px solid #bfdbfe;">
+                <form method="GET" action="{{ route('ocean-export.index') }}" style="display:flex;flex-wrap:wrap;gap:6px;align-items:end;margin:0;">
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">Office</label>
+                        <select name="office_id" class="input-inline" style="width:100px;height:20px;font-size:9px;">
+                            <option value="">All Offices</option>
+                            @foreach($offices as $o)
+                                <option value="{{ $o->id }}" {{ request('office_id') == $o->id ? 'selected' : '' }}>{{ $o->code }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">Operator</label>
+                        <select name="op_id" class="input-inline" style="width:100px;height:20px;font-size:9px;">
+                            <option value="">All Ops</option>
+                            @foreach($users as $u)
+                                <option value="{{ $u->id }}" {{ request('op_id') == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">Carrier</label>
+                        <select name="carrier_id" class="input-inline" style="width:120px;height:20px;font-size:9px;">
+                            <option value="">All Carriers</option>
+                            @foreach($agents->where('type', 'CARRIER') as $c)
+                                <option value="{{ $c->id }}" {{ request('carrier_id') == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">POL</label>
+                        <select name="pol_id" class="input-inline" style="width:120px;height:20px;font-size:9px;">
+                            <option value="">All POL</option>
+                            @foreach($ports as $p)
+                                <option value="{{ $p->id }}" {{ request('pol_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">POD</label>
+                        <select name="pod_id" class="input-inline" style="width:120px;height:20px;font-size:9px;">
+                            <option value="">All POD</option>
+                            @foreach($ports as $p)
+                                <option value="{{ $p->id }}" {{ request('pod_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">Customer</label>
+                        <select name="dm_customer_id" class="input-inline" style="width:120px;height:20px;font-size:9px;">
+                            <option value="">All Customers</option>
+                            @foreach($agents as $a)
+                                <option value="{{ $a->id }}" {{ request('dm_customer_id') == $a->id ? 'selected' : '' }}>{{ $a->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">ETD From</label>
+                        <input type="date" name="etd_from" class="input-inline" style="width:110px;height:20px;font-size:9px;" value="{{ request('etd_from') }}">
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">ETD To</label>
+                        <input type="date" name="etd_to" class="input-inline" style="width:110px;height:20px;font-size:9px;" value="{{ request('etd_to') }}">
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">ETA From</label>
+                        <input type="date" name="eta_from" class="input-inline" style="width:110px;height:20px;font-size:9px;" value="{{ request('eta_from') }}">
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <label style="font-size:9px;color:#475569;font-weight:600;">ETA To</label>
+                        <input type="date" name="eta_to" class="input-inline" style="width:110px;height:20px;font-size:9px;" value="{{ request('eta_to') }}">
+                    </div>
+                    <div style="display:flex;gap:4px;align-self:end;padding-bottom:1px;">
+                        <button type="submit" class="btn-tool green" style="height:20px;font-size:9px;padding:0 10px;">
+                            <i class="fa fa-search"></i> Filter
+                        </button>
+                        <a href="{{ route('ocean-export.index') }}" class="btn-tool" style="height:20px;font-size:9px;padding:0 10px;" target="_blank">
+                            <i class="fa fa-undo"></i> Clear
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            {{-- ── BULK-ACTION FORM + TABLE ── --}}
+            <form id="bulk-form" method="POST" action="{{ route('ocean-export.bulk-delete') }}" style="margin:0;">
+                @csrf
+                @method('DELETE')
+                <div class="portlet-body">
+                    <div class="grid-container">
+                        <div class="grid-wrapper">
+                            <table class="grid-table" id="main-grid">
+                                <thead>
+                                    {{-- ── HEADER ROW ── --}}
+                                    <tr id="header-row">
+                                        <th class="sticky-col sticky-col-header" data-col="check"   style="width:25px;text-align:center;">
+                                            <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" title="Select All">
+                                        </th>
+                                        <th class="sticky-col sticky-col-header" data-col="lock"    style="width:25px;left:25px;text-align:center;"><i class="fa fa-lock"></i></th>
+                                        <th class="sticky-col sticky-col-header" data-col="hbl"     style="width:40px;left:50px;">HB/L</th>
+                                        <th class="sticky-col sticky-col-header" data-col="file_no" style="width:110px;left:90px;">File No.</th>
+                                        <th class="sticky-col sticky-col-header" data-col="color"   style="width:35px;left:200px;text-align:center;">Color</th>
+                                        <th class="sticky-col sticky-col-header" data-col="mbl_no"  style="width:150px;left:235px;">MB/L No.</th>
+                                        <th data-col="tracking"     style="width:140px;">Tracking EDI Response</th>
+                                        <th data-col="sub_status"   style="width:100px;">Submit Status</th>
+                                        <th data-col="office"       style="width:80px;">Office</th>
+                                        <th data-col="hbl_no"       style="width:120px;">HB/L No.</th>
+                                        <th data-col="ct"           style="width:35px;text-align:right;">CT</th>
+                                        <th data-col="cont_qty"     style="width:100px;">Container/Qty</th>
+                                        <th data-col="consignee"    style="width:150px;">Consignee</th>
+                                        <th data-col="etd"          style="width:75px;">ETD</th>
+                                        <th data-col="eta"          style="width:75px;">ETA</th>
+                                        <th data-col="obl"          style="width:70px;">O. B/L</th>
+                                        <th data-col="mbl"          style="width:70px;">M. B/L</th>
+                                        <th data-col="pol"          style="width:130px;">Port of Loading</th>
+                                        <th data-col="pod"          style="width:130px;">Port of Discharge</th>
+                                        <th data-col="del"          style="width:130px;">Place of Delivery</th>
+                                        <th data-col="fdest"        style="width:130px;">Final Destination</th>
+                                        <th data-col="oa"           style="width:120px;">Oversea Agent</th>
+                                        <th data-col="customer"     style="width:150px;">Customer</th>
+                                        <th data-col="sales"        style="width:100px;">Sales</th>
+                                        <th data-col="pieces"       style="width:80px;text-align:right;">Total Pieces</th>
+                                        <th data-col="weight"       style="width:80px;text-align:right;">Total Weight</th>
+                                        <th data-col="volume"       style="width:80px;text-align:right;">Total Volume</th>
+                                        <th data-col="frt_mbl"      style="width:100px;">Frt. Term (MB/L)</th>
+                                        <th data-col="frt_hbl"      style="width:100px;">Frt. Term (HB/L)</th>
+                                        <th data-col="lfd"          style="width:75px;">LFD</th>
+                                        <th data-col="vessel"       style="width:130px;">Vessel / Voyage</th>
+                                        <th data-col="cont_no"      style="width:120px;">Container No.</th>
+                                        <th data-col="mbl_type"     style="width:100px;">M. B/L Type</th>
+                                        <th data-col="sub_bl"       style="width:100px;">Sub B/L No.</th>
+                                        <th data-col="available"    style="width:75px;">Available</th>
+                                        <th data-col="go_date"      style="width:75px;">G.O Date</th>
+                                        <th data-col="trucker"      style="width:120px;">Trucker</th>
+                                        <th data-col="entry_no"     style="width:100px;">Entry No.</th>
+                                        <th data-col="pod_eta"      style="width:75px;">P.O.D ETA</th>
+                                        <th data-col="do_no"        style="width:100px;">D.O. No</th>
+                                        <th data-col="final_eta"    style="width:75px;">Final ETA</th>
+                                        <th data-col="rel_no"       style="width:100px;">Release No</th>
+                                        <th data-col="hold"         style="width:60px;text-align:center;">Hold</th>
+                                        <th data-col="entry_doc"    style="width:75px;">Entry DOC Sent</th>
+                                        <th data-col="ams_no"       style="width:100px;">AMS No.</th>
+                                        <th data-col="isf_no"       style="width:100px;">ISF No.</th>
+                                        <th data-col="incoterms"    style="width:100px;">Incoterms</th>
+                                        <th data-col="post_date"    style="width:75px;">Post Date</th>
+                                    </tr>
+
+                                    {{-- ── FILTER ROW (hidden by default) ── --}}
+                                    <tr id="filter-row" style="display:none;">
+                                        <td class="sticky-col" style="left:0;"></td>
+                                        <td class="sticky-col" style="left:25px;"></td>
+                                        <td class="sticky-col" style="left:50px;"></td>
+                                        <td class="sticky-col" style="left:90px;"><input class="filter-input" data-col-idx="3" placeholder="File No…" oninput="applyFilters()"></td>
+                                        <td class="sticky-col" style="left:200px;"></td>
+                                        <td class="sticky-col" style="left:235px;"><input class="filter-input" data-col-idx="5" placeholder="MB/L…" oninput="applyFilters()"></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td><input class="filter-input" data-col-idx="8"  placeholder="Office…"    oninput="applyFilters()"></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td><input class="filter-input" data-col-idx="12" placeholder="Consignee…" oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="13" placeholder="ETD…"       oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="14" placeholder="ETA…"       oninput="applyFilters()"></td>
+                                        <td></td><td></td>
+                                        <td><input class="filter-input" data-col-idx="17" placeholder="POL…"       oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="18" placeholder="POD…"       oninput="applyFilters()"></td>
+                                        <td></td><td></td><td></td>
+                                        <td><input class="filter-input" data-col-idx="22" placeholder="Customer…"  oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="23" placeholder="Sales…"     oninput="applyFilters()"></td>
+                                        <td colspan="24"></td>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="grid-body">
+                                @forelse($shipments as $shipment)
+                                    <tr
+                                        id="shipment-row-{{ $shipment->id }}"
+                                        data-id="{{ $shipment->id }}"
+                                        data-file="{{ $shipment->file_no }}"
+                                        data-mbl="{{ $shipment->mbl_no }}"
+                                        data-carrier="{{ $shipment->carrier->name ?? '' }}"
+                                        data-vessel="{{ ($shipment->vessel->name ?? '--') . ' / ' . ($shipment->voyage ?? '--') }}"
+                                        data-pol="{{ $shipment->portOfLoading->name ?? '--' }}"
+                                        data-pod="{{ $shipment->portOfDischarge->name ?? '--' }}"
+                                        data-etd="{{ $shipment->etd ? $shipment->etd->format('m-d-Y') : '--' }}"
+                                        data-eta="{{ $shipment->eta ? $shipment->eta->format('m-d-Y') : '--' }}"
+                                        data-obl="{{ $shipment->obl_type ?? '--' }}"
+                                        data-bl="{{ $shipment->bl_type ?? '--' }}"
+                                        data-containers="{{ $shipment->containers->count() }}"
+                                        data-hbls="{{ $shipment->hbls->count() }}"
+                                        data-customer="{{ $shipment->dmCustomer->name ?? '--' }}"
+                                        onclick="rowClick(event, this)"
+                                    >
+                                        {{-- Checkbox --}}
+                                        <td class="sticky-col" style="width:25px;text-align:center;" onclick="event.stopPropagation()">
+                                            <input type="checkbox" name="ids[]" value="{{ $shipment->id }}" class="row-check" onchange="updateToolbar()">
+                                        </td>
+                                        {{-- Lock --}}
+                                        <td class="sticky-col" style="width:25px;left:25px;text-align:center;" onclick="event.stopPropagation()">
+                                            <i class="fa fa-lock" style="color:#94a3b8;cursor:pointer;font-size:10px;" title="Lock / Unlock" onclick="toggleLock(this)"></i>
+                                        </td>
+                                        {{-- VIEW link --}}
+                                        <td class="sticky-col" style="width:40px;left:50px;" onclick="event.stopPropagation()">
+                                            <a href="{{ route('ocean-export.edit', $shipment->id) }}" class="col-link">VIEW</a>
+                                        </td>
+                                        {{-- File No. --}}
+                                        <td class="sticky-col" style="width:110px;left:90px;" onclick="event.stopPropagation()">
+                                            <a href="{{ route('ocean-export.edit', $shipment->id) }}" class="col-link">{{ $shipment->file_no }}</a>
+                                        </td>
+                                        {{-- Color --}}
+                                        <td class="sticky-col" style="width:35px;left:200px;text-align:center;">
+                                            <span class="color-mark" style="background:{{ $shipment->color ?? '#94a3b8' }}" title="Click to change status color" onclick="event.stopPropagation();openColorPicker({{ $shipment->id }}, '{{ $shipment->color ?? '' }}')"></span>
+                                        </td>
+                                        {{-- MBL + Eye --}}
+                                        <td class="sticky-col" style="width:150px;left:235px;" onclick="event.stopPropagation()">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                                <span>{{ $shipment->mbl_no }}</span>
+                                                <i class="fa fa-eye"
+                                                   style="color:#3b82f6;cursor:pointer;font-size:10px;"
+                                                   title="Quick View MBL"
+                                                   onclick="showMbl({
+                                                       file_no:    '{{ addslashes($shipment->file_no) }}',
+                                                       mbl_no:     '{{ addslashes($shipment->mbl_no) }}',
+                                                       carrier:    '{{ addslashes($shipment->carrier->name ?? "--") }}',
+                                                       vessel:     '{{ addslashes(($shipment->vessel->name ?? "--") . " / " . ($shipment->voyage ?? "--")) }}',
+                                                       pol:        '{{ addslashes($shipment->portOfLoading->name ?? "--") }}',
+                                                       pod:        '{{ addslashes($shipment->portOfDischarge->name ?? "--") }}',
+                                                       etd:        '{{ $shipment->etd ? $shipment->etd->format("m-d-Y") : "--" }}',
+                                                       eta:        '{{ $shipment->eta ? $shipment->eta->format("m-d-Y") : "--" }}',
+                                                       obl_type:   '{{ addslashes($shipment->obl_type ?? "--") }}',
+                                                       bl_type:    '{{ addslashes($shipment->bl_type ?? "--") }}',
+                                                       containers: {{ $shipment->containers->count() }},
+                                                       hbls:       {{ $shipment->hbls->count() }}
+                                                   })"></i>
+                                            </div>
+                                        </td>
+                                        {{-- Scrollable columns --}}
+                                        <td>{{ $shipment->updated_at->format('m-d-Y H:i') }}</td>
+                                        <td><span class="badge-status bg-green">MATCHED</span></td>
+                                        <td>{{ $shipment->office->code ?? '--' }}</td>
+                                        <td>{{ $shipment->hbls->count() }} HBLs</td>
+                                        <td style="text-align:right;">{{ $shipment->containers->count() }}</td>
+                                        <td>
+                                            @foreach($shipment->containers->take(2) as $c)
+                                                {{ $c->containerType->code ?? '' }}*1&nbsp;
+                                            @endforeach
+                                        </td>
+                                        <td>{{ $shipment->dmConsignee->name ?? '--' }}</td>
+                                        <td>{{ $shipment->etd ? $shipment->etd->format('m-d-Y') : '--' }}</td>
+                                        <td>{{ $shipment->eta ? $shipment->eta->format('m-d-Y') : '--' }}</td>
+                                        <td>{{ $shipment->obl_type ?? '--' }}</td>
+                                        <td>{{ $shipment->bl_type ?? '--' }}</td>
+                                        <td>{{ $shipment->portOfLoading->name ?? '--' }}</td>
+                                        <td>{{ $shipment->portOfDischarge->name ?? '--' }}</td>
+                                        <td>{{ $shipment->del_id ?? '--' }}</td>
+                                        <td>{{ $shipment->fdest_id ?? '--' }}</td>
+                                        <td>{{ $shipment->overseaAgent->name ?? '--' }}</td>
+                                        <td>{{ $shipment->dmCustomer->name ?? '--' }}</td>
+                                        <td>{{ $shipment->operator->name ?? '--' }}</td>
+                                        <td style="text-align:right;">{{ $shipment->containers->sum('pkg_qty') }}</td>
+                                        <td style="text-align:right;">{{ number_format($shipment->containers->sum('weight_kg'), 2) }}</td>
+                                        <td style="text-align:right;">{{ number_format($shipment->containers->sum('measure_cbm'), 2) }}</td>
+                                        <td>{{ $shipment->freight_term ?? '--' }}</td>
+                                        <td>--</td>
+                                        <td>{{ $shipment->containers->max('lfd') ? \Carbon\Carbon::parse($shipment->containers->max('lfd'))->format('m-d-Y') : '--' }}</td>
+                                        <td>{{ ($shipment->vessel->name ?? '--') }} / {{ $shipment->voyage ?? '--' }}</td>
+                                        <td>{{ $shipment->containers->first()?->container_no ?? '--' }}</td>
+                                        <td>{{ $shipment->bl_type ?? '--' }}</td>
+                                        <td>{{ $shipment->sub_bl_no ?? '--' }}</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td style="text-align:center;"><i class="fa fa-times" style="color:#ef4444;"></i></td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>{{ $shipment->post_date ? $shipment->post_date->format('m-d-Y') : '--' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr id="empty-row">
+                                        <td colspan="50" style="text-align:center;padding:30px 10px;color:#94a3b8;">
+                                            <i class="fa fa-inbox" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+                                            No shipments found.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            {{-- ── PAGINATION ── --}}
+                                 <div class="portlet-tool bottom">
+                                     <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                                         <div id="pagination-container">{{ $shipments->links() }}</div>
+                                         <div style="font-size:10px;color:#64748b;">
+                                             Showing <span id="stat-first">{{ $shipments->firstItem() ?? 0 }}</span> – <span id="stat-last">{{ $shipments->lastItem() ?? 0 }}</span> of <span id="stat-total">{{ $shipments->total() }}</span> records
+                                         </div>
+                                     </div>
+                                 </div>
+
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+    /* ================================================================
+       TOOLBAR — checkbox management
+    ================================================================ */
+    function updateToolbar() {
+        const checked  = [...document.querySelectorAll('.row-check:checked')];
+        const all      = [...document.querySelectorAll('.row-check')];
+        const n        = checked.length;
+        const sa       = document.getElementById('select-all');
+        sa.checked        = n === all.length && all.length > 0;
+        sa.indeterminate  = n > 0 && n < all.length;
+
+        document.getElementById('btn-delete').disabled  = n === 0;
+        document.getElementById('btn-copy').disabled    = n !== 1;
+        document.getElementById('btn-block').disabled   = n === 0;
+        document.getElementById('btn-unblock').disabled = n === 0;
+
+        const badge = document.getElementById('sel-badge');
+        badge.style.display = n > 0 ? 'inline' : 'none';
+        badge.textContent   = n + ' selected';
+
+        // highlight selected rows
+        document.querySelectorAll('#grid-body tr[data-id]').forEach(row => {
+            const cb = row.querySelector('.row-check');
+            row.classList.toggle('row-selected', cb && cb.checked);
+        });
+    }
+
+    function toggleSelectAll(el) {
+        document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
+        updateToolbar();
+    }
+
+    /* ================================================================
+       ROW CLICK — click row to toggle checkbox
+    ================================================================ */
+    function rowClick(e, row) {
+        const skip = ['A', 'INPUT', 'BUTTON', 'I'];
+        if (skip.includes(e.target.tagName)) return;
+        const cb = row.querySelector('.row-check');
+        if (cb) { cb.checked = !cb.checked; updateToolbar(); }
+    }
+
+    /* ================================================================
+       DELETE
+    ================================================================ */
+    function confirmDelete() {
+        const n = document.querySelectorAll('.row-check:checked').length;
+        if (!n) return;
+        document.getElementById('confirm-msg').textContent =
+            `You are about to permanently delete ${n} shipment(s). This cannot be undone.`;
+        document.getElementById('confirm-overlay').classList.add('open');
+    }
+    function closeConfirm() {
+        document.getElementById('confirm-overlay').classList.remove('open');
+    }
+    function executeDelete() {
+        closeConfirm();
+        const ids = getSelectedIds();
+        if (!ids.length) return;
+        
+        showToast('info', 'Deleting...');
+        fetch('{{ route("ocean-export.bulk-delete") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', 
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ ids }),
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                showToast('success', data.message || 'Deleted successfully');
+                setTimeout(() => window.location.reload(), 600);
+            } else {
+                showToast('error', data.message || 'Failed to delete');
+            }
+        }).catch(() => showToast('error', 'Failed to delete'));
+    }
+
+    /* ================================================================
+       COPY — navigate to create page with ?copy=id
+    ================================================================ */
+    function copySelected() {
+        const checked = [...document.querySelectorAll('.row-check:checked')];
+        if (checked.length !== 1) return;
+        const row = checked[0].closest('tr');
+        showToast('info', 'Copying shipment: ' + (row.dataset.shipment || '') + ' ...');
+        setTimeout(() => {
+            window.location.href = '{{ route("ocean-export.create") }}?copy=' + row.dataset.id;
+        }, 600);
+    }
+
+    /* ================================================================
+       BLOCK / UNBLOCK
+    ================================================================ */
+    function blockSelected() {
+        const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+        if (!ids.length) return;
+        fetch('{{ route('ocean-export.bulk-block') }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ ids })
+        })
+        .then(r => r.json())
+        .then(d => { showToast('success', d.message || 'Blocked.'); setTimeout(() => location.reload(), 800); })
+        .catch(() => showToast('error', 'Block failed.'));
+    }
+    function unblockSelected() {
+        const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+        if (!ids.length) return;
+        fetch('{{ route('ocean-export.bulk-unblock') }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ ids })
+        })
+        .then(r => r.json())
+        .then(d => { showToast('success', d.message || 'Unblocked.'); setTimeout(() => location.reload(), 800); })
+        .catch(() => showToast('error', 'Unblock failed.'));
+    }
+
+    /* ================================================================
+       LOCK ICON TOGGLE (per-row visual)
+    ================================================================ */
+    function toggleLock(el) {
+        const locked = el.classList.contains('fa-lock');
+        el.classList.toggle('fa-lock',   !locked);
+        el.classList.toggle('fa-unlock',  locked);
+        el.style.color = locked ? '#22c55e' : '#94a3b8';
+        el.title = locked ? 'Unlock' : 'Lock';
+        showToast('info', locked ? 'Row unlocked.' : 'Row locked.');
+    }
+
+    /* ================================================================
+       FILTER TOGGLE — show/hide advanced filter panel
+    ================================================================ */
+    let filterOpen = false;
+    function toggleFilter() {
+        filterOpen = !filterOpen;
+        const panel = document.getElementById('advanced-filter');
+        panel.style.display = filterOpen ? 'block' : 'none';
+        document.getElementById('btn-filter').classList.toggle('active-filter', filterOpen);
+    }
+
+    /* ================================================================
+        AJAX GRID UPDATE
+    ================================================================ */
+    async function updateGrid(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const newBody = doc.getElementById('grid-body');
+            const newPagination = doc.getElementById('pagination-container');
+            
+            if (newBody) document.getElementById('grid-body').innerHTML = newBody.innerHTML;
+            if (newPagination) document.getElementById('pagination-container').innerHTML = newPagination.innerHTML;
+            
+            const stats = doc.querySelector('.portlet-tool.bottom div:last-child');
+            if (stats) {
+                const text = stats.textContent;
+                const matches = text.match(/\d+/g);
+                if (matches && matches.length >= 3) {
+                    document.getElementById('stat-first').textContent = matches[0];
+                    document.getElementById('stat-last').textContent = matches[1];
+                    document.getElementById('stat-total').textContent = matches[2];
+                }
+            }
+            
+            updateToolbar();
+        } catch (e) {
+            console.error(e);
+            showToast('error', 'Failed to update grid');
+        }
+    }
+
+    function getSelectedIds() {
+        return [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+    }
+
+    let searchDebounce;
+    function quickSearch(val) {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            const q = val.trim();
+            const url = new URL(window.location.href);
+            if (!q) url.searchParams.delete('search'); else url.searchParams.set('search', q);
+            updateGrid(url.toString());
+        }, 300);
+    }
+
+    let filterDebounce;
+    function applyFilters() {
+        clearTimeout(filterDebounce);
+        filterDebounce = setTimeout(() => {
+            const inputs = [...document.querySelectorAll('#filter-row .filter-input')];
+            const url = new URL(window.location.href);
+            
+            const filterMap = {
+                3: 'filter_file_no', 5: 'filter_mbl_no', 8: 'filter_office',
+                12: 'filter_consignee', 13: 'filter_etd', 14: 'filter_eta',
+                17: 'filter_pol', 18: 'filter_pod', 22: 'filter_customer', 23: 'filter_sales'
+            };
+            
+            Object.values(filterMap).forEach(p => url.searchParams.delete(p));
+            
+            inputs.forEach(inp => {
+                const v = inp.value.trim();
+                if (!v) return;
+                const param = filterMap[inp.dataset.colIdx];
+                if (param) url.searchParams.set(param, v);
+            });
+            
+            updateGrid(url.toString());
+        }, 300);
+    }
+
+    let filterOpen = false;
+    function toggleFilter() {
+        filterOpen = !filterOpen;
+        const row = document.getElementById('filter-row');
+        if (row) {
+            row.style.display = filterOpen ? 'table-row' : 'none';
+            document.getElementById('btn-filter').classList.toggle('active-filter', filterOpen);
+        }
+    }
+
+
+    /* ================================================================
+       CONFIG PANEL — column visibility
+    ================================================================ */
+    const PINNED_COLS = ['check', 'lock', 'hbl', 'file_no', 'color', 'mbl_no'];
+
+    function toggleConfig() {
+        const panel = document.getElementById('config-panel');
+        const open  = panel.style.display === 'none';
+        panel.style.display = open ? 'block' : 'none';
+        document.getElementById('btn-config').classList.toggle('active', open);
+        if (open) buildConfigPanel();
+    }
+
+    function buildConfigPanel() {
+        const container = document.getElementById('col-toggles');
+        container.innerHTML = '';
+        document.querySelectorAll('#header-row th[data-col]').forEach(th => {
+            if (PINNED_COLS.includes(th.dataset.col)) return;
+            const label = document.createElement('label');
+            const cb    = document.createElement('input');
+            cb.type    = 'checkbox';
+            cb.checked = th.style.display !== 'none';
+            cb.onchange = () => toggleColumn(th.dataset.col, cb.checked);
+            label.appendChild(cb);
+            label.append(' ' + th.textContent.trim());
+            container.appendChild(label);
+        });
+    }
+
+    function toggleColumn(colName, show) {
+        const th  = document.querySelector(`#header-row th[data-col="${colName}"]`);
+        const idx = [...th.parentElement.children].indexOf(th);
+        th.style.display = show ? '' : 'none';
+        document.querySelectorAll('#grid-body tr, #filter-row').forEach(row => {
+            const cell = row.querySelectorAll('td, th')[idx];
+            if (cell) cell.style.display = show ? '' : 'none';
+        });
+    }
+
+    // Close config on outside click
+    document.addEventListener('click', e => {
+        const panel = document.getElementById('config-panel');
+        const btn   = document.getElementById('btn-config');
+        if (panel.style.display !== 'none' && !panel.contains(e.target) && !btn.contains(e.target)) {
+            panel.style.display = 'none';
+            btn.classList.remove('active');
+        }
+    });
+
+    /* ================================================================
+       MBL QUICK-VIEW MODAL
+    ================================================================ */
+    function showMbl(d) {
+        const rows = [
+            ['File No.',         d.file_no],
+            ['MBL No.',          d.mbl_no],
+            ['Carrier',          d.carrier],
+            ['Vessel / Voyage',  d.vessel],
+            ['Port of Loading',  d.pol],
+            ['Port of Discharge',d.pod],
+            ['ETD',              d.etd],
+            ['ETA',              d.eta],
+            ['O. B/L Type',      d.obl_type],
+            ['M. B/L Type',      d.bl_type],
+            ['Containers',       d.containers],
+            ['HBLs',             d.hbls],
+        ];
+        document.getElementById('mbl-body').innerHTML = rows.map(([l, v]) =>
+            `<div class="mbl-row"><span class="lbl">${l}</span><span class="val">${v ?? '--'}</span></div>`
+        ).join('');
+        document.getElementById('mbl-overlay').classList.add('open');
+    }
+    function closeMbl() {
+        document.getElementById('mbl-overlay').classList.remove('open');
+    }
+
+    /* ================================================================
+       TOAST NOTIFICATIONS
+    ================================================================ */
+    function showToast(type, msg) {
+        const icons = { success: 'check-circle', error: 'times-circle', info: 'info-circle' };
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.innerHTML = `<i class="fa fa-${icons[type]}"></i> <span>${msg}</span>`;
+        document.getElementById('toast-container').appendChild(t);
+        setTimeout(() => t.remove(), 4000);
+    }
+
+    /* ================================================================
+       COLOR PICKER
+    ================================================================ */
+    const COLOR_OPTIONS = [
+        { label: 'Urgent', value: '#E08283' },
+        { label: 'Ready to bill', value: '#F3C200' },
+        { label: 'Ready to close', value: '#25A69A' },
+        { label: 'Postpone', value: '#4B77BE' },
+        { label: 'Freight Finalized', value: '#9B9B9B' },
+    ];
+    let _colorShipmentId = null;
+    function openColorPicker(id, currentColor) {
+        _colorShipmentId = id;
+        const grid = document.getElementById('color-picker-grid');
+        grid.innerHTML = COLOR_OPTIONS.map(o => {
+            const active = o.value === currentColor;
+            return `<div class="color-picker-opt ${active ? 'active' : ''}" onclick="selectColor('${o.value}', this)"><span class="swatch" style="background:${o.value}"></span><span>${o.label}</span><i class="fa fa-check"></i></div>`;
+        }).join('');
+        document.getElementById('color-picker-overlay').classList.add('open');
+    }
+    function selectColor(color, el) {
+        document.querySelectorAll('.color-picker-opt').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        const id = _colorShipmentId;
+        fetch('{{ route("ocean-export.update-color", "ID") }}'.replace('ID', id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+            body: JSON.stringify({ color }),
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                const span = document.querySelector(`#shipment-row-${id} .color-mark`);
+                if (span) span.style.background = color;
+                showToast('success', 'Status color updated');
+            }
+        }).catch(() => showToast('error', 'Failed to update color'));
+        closeColorPicker();
+    }
+    function closeColorPicker() {
+        document.getElementById('color-picker-overlay').classList.remove('open');
+        _colorShipmentId = null;
+    }
+    function clearColor() {
+        const id = _colorShipmentId;
+        fetch('{{ route("ocean-export.update-color", "ID") }}'.replace('ID', id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+            body: JSON.stringify({ color: '' }),
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                const span = document.querySelector(`#shipment-row-${id} .color-mark`);
+                if (span) span.style.background = '#94a3b8';
+                showToast('success', 'Status color cleared');
+            }
+        }).catch(() => showToast('error', 'Failed to clear color'));
+        closeColorPicker();
+    }
+    </script>
+    {{-- ═══════════════════════ COLOR PICKER MODAL ═══════════════════════ --}}
+    <div class="overlay color-picker-overlay" id="color-picker-overlay" onclick="if(event.target===this) closeColorPicker()">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-header-title"><i class="fa fa-paint-brush" style="color:#3b82f6;"></i> Status Color</div>
+                <button class="modal-close" onclick="closeColorPicker()"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="text-align:center;">
+                <div class="color-picker-grid" id="color-picker-grid">
+                </div>
+                <div class="color-clear-btn" onclick="clearColor()">Clear / No Color</div>
+            </div>
+        </div>
+    </div>
+    @endpush
+</x-layout>

@@ -1,0 +1,1532 @@
+<x-layout>
+    @push('styles')
+    <x-form-styles />
+    @endpush
+
+    <script>
+        function airImportModule() {
+            return {
+                saved: false,
+                activeTab: 'basic',
+                showMblSection: true,
+                showMblMemo: false,
+                isDirectMaster: false,
+                showMore: false,
+                showClipboardModal: false,
+                showQuoteModal: '{{ $page ?? "" }}' === 'air-import.create-quote',
+                quoteStep: 1,
+                selectedQuote: null,
+                showWrModal: false,
+                wrLoading: false,
+                wrSearchQuery: '',
+                wrSearchResults: [],
+                showDocModal: false,
+                searchWarehouseList() {
+                    this.wrLoading = true;
+                    setTimeout(() => {
+                        this.wrSearchResults = [
+                            { receipt_no: 'WR-2405001', description: 'Electronics Parts', total_pcs: 100, available_pcs: 100, actual_weight: 500, measurement: 2.5, selected: false },
+                            { receipt_no: 'WR-2405002', description: 'Apparel', total_pcs: 50, available_pcs: 20, actual_weight: 150, measurement: 1.2, selected: false }
+                        ];
+                        this.wrLoading = false;
+                    }, 500);
+                },
+                loadSelectedWarehouse() {
+                    this.showWrModal = false;
+                },
+                selectQuote(data) {
+                    this.selectedQuote = data;
+                    this.quoteForm.mawb_no = data.mawb_no;
+                    this.quoteForm.hawb_no = data.hawb_no;
+                    this.quoteForm.eta = data.eta;
+                    this.quoteForm.etd = data.etd;
+                    this.quoteForm.customer = data.customer;
+                    this.quoteForm.customer_id = data.customer_id;
+                    this.quoteForm.sales = data.sales;
+                    this.quoteForm.sales_person_id = data.sales_person_id;
+                    this.quoteForm.oversea_agent = data.oversea_agent;
+                    this.quoteForm.service_term = data.service_term;
+                    this.quoteForm.op = data.op;
+                    this.quoteForm.incoterms = data.incoterms;
+                    this.quoteForm.detail = data.detail;
+                    this.quoteForm.ship_mode = data.ship_mode;
+                    this.quoteForm.pol_id = data.pol_id;
+                    this.quoteForm.pod_id = data.pod_id;
+                    this.quoteForm.quote_no = data.quote_no;
+                },
+                filters: {
+                    customer: '',
+                    pol: '',
+                    quote_no: '',
+                    valid_date: '',
+                    pod: '',
+                    status: '',
+                    commodity: '',
+                    sales: '',
+                    op: ''
+                },
+                searchFilters: {
+                    customer: '',
+                    pol: '',
+                    quote_no: '',
+                    valid_date: '',
+                    pod: '',
+                    status: '',
+                    commodity: '',
+                    sales: '',
+                    op: ''
+                },
+                applySearch() {
+                    this.searchFilters = { ...this.filters };
+                },
+                clearSearch() {
+                    this.filters = {
+                        customer: '',
+                        pol: '',
+                        quote_no: '',
+                        valid_date: '',
+                        pod: '',
+                        status: '',
+                        commodity: '',
+                        sales: '',
+                        op: ''
+                    };
+                    this.searchFilters = { ...this.filters };
+                },
+                matchFilters(quote) {
+                    if (this.searchFilters.quote_no && !quote.quote_no.toLowerCase().includes(this.searchFilters.quote_no.toLowerCase())) return false;
+                    if (this.searchFilters.customer && quote.customer_id != this.searchFilters.customer) return false;
+                    if (this.searchFilters.pol && quote.pol_id != this.searchFilters.pol) return false;
+                    if (this.searchFilters.pod && quote.pod_id != this.searchFilters.pod) return false;
+                    if (this.searchFilters.status && quote.status.toUpperCase() !== this.searchFilters.status.toUpperCase()) return false;
+                    if (this.searchFilters.sales && quote.sales_person_id != this.searchFilters.sales) return false;
+                    if (this.searchFilters.op && quote.sales_person_id != this.searchFilters.op) return false;
+                    return true;
+                },
+                quoteForm: {
+                    mawb_no: '',
+                    hawb_no: '',
+                    etd: '',
+                    eta: '',
+                    customer: '',
+                    customer_id: '',
+                    sales_person_id: '',
+                    pol_id: '',
+                    pod_id: '',
+                    quote_no: '',
+                    ship_mode: '',
+                    oversea_agent: '',
+                    service_term: '',
+                    sales: '',
+                    op: '',
+                    incoterms: '',
+                    detail: ''
+                },
+                hawbs: [],
+                form: {
+                    file_no: 'MAI-' + Date.now().toString().slice(-6),
+                    mawb_number: '',
+                    office_id: '',
+                    post_date: '',
+                    voyage: '',
+                    etd: '',
+                    eta: '',
+                    containers: [],
+                    charges: [],
+                    history: []
+                },
+                addContainer(count = 1) {
+                    const c = (typeof count === 'number') ? count : 1;
+                    for(let i=0; i<c; i++) {
+                        this.form.containers.push({
+                            selected: false,
+                            number: '',
+                            pp_ctf: '',
+                            type: "40'HQ",
+                            seal: '',
+                            seal2: '',
+                            lfd: '',
+                            fdd: '',
+                            pkg: 0,
+                            weight: 0,
+                            measure: 0,
+                            expanded: false
+                        });
+                    }
+                },
+                deleteSelectedContainers() {
+                    this.form.containers = this.form.containers.filter(c => !c.selected);
+                },
+                toggleAllContainers(e) {
+                    this.form.containers.forEach(c => c.selected = e.target.checked);
+                },
+                calculateTotal(field) {
+                    return this.form.containers.reduce((sum, c) => sum + (parseFloat(c[field]) || 0), 0);
+                },
+                addHbl() { 
+                    this.hawbs.push({ 
+                        show: true, 
+                        showMore: false, 
+                        showMemo: false, 
+                        hbl_no: '',
+                        subHawbs: [],
+                        commodities: []
+                    }); 
+                    this.showMblSection = false;
+                },
+                removeHbl(idx) { this.hawbs.splice(idx, 1); },
+                confirmQuoteSelection() {
+                    this.form.mawb_number = this.quoteForm.mawb_no;
+                    this.form.eta = this.quoteForm.eta;
+                    this.form.etd = this.quoteForm.etd;
+                    
+                    if (this.quoteForm.customer_id) this.form.dm_customer_id = this.quoteForm.customer_id;
+                    if (this.quoteForm.sales_person_id) this.form.dm_sales_person_id = this.quoteForm.sales_person_id;
+                    if (this.quoteForm.pol_id) this.form.pol_id = this.quoteForm.pol_id;
+                    if (this.quoteForm.pod_id) this.form.pod_id = this.quoteForm.pod_id;
+                    if (this.quoteForm.incoterms) this.form.incoterm_id = this.quoteForm.incoterms;
+                    
+                    if(this.hawbs.length === 0) this.addHbl();
+                    this.hawbs[0].hbl_no = this.quoteForm.hawb_no;
+                    if (this.quoteForm.quote_no) {
+                        this.hawbs[0].quotation_no = this.quoteForm.quote_no;
+                    }
+                    
+                    if (this.selectedQuote && this.selectedQuote.items) {
+                        const items = this.selectedQuote.items.filter(item => item.selected !== false);
+                        items.forEach(item => {
+                            this.form.charges.push({
+                                id: null,
+                                selected: false,
+                                party: 'Custom',
+                                party_name_id: '',
+                                sal: 'Air',
+                                pr: 'Rec',
+                                ppc: 'Colle',
+                                chrg_code: item.charge_code,
+                                charge_name: item.charge_name,
+                                currency: item.currency || 'USD',
+                                rate: item.rate,
+                                qty: item.qty,
+                                qty_type: item.unit || 'UNIT',
+                                roe: 1.0,
+                                vat: 0,
+                                inv_no: '',
+                                financial_date: new Date().toISOString().split('T')[0],
+                                eq_bl_no: '',
+                                remark: false,
+                                mbl_no: ''
+                            });
+                        });
+                    }
+                    this.showQuoteModal = false;
+                },
+                saveShipment() { 
+                    this.saved = true;
+                    alert('Air Import Shipment Saved!'); 
+                },
+                init() {
+                    if (this.hawbs.length === 0) {
+                        this.addHbl();
+                    }
+                }
+            }
+        }
+    </script>
+
+    <div class="page-content" x-data="airImportModule()" x-init="init()">
+        <!-- Breadcrumbs -->
+        <div style="font-size: 11px; color: #8e9eae; margin-bottom: 15px;">
+            <a href="/" style="color: #8e9eae; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#337ab7';" onmouseout="this.style.color='#8e9eae';" target="_blank"><i class="fa fa-home"></i> Home</a> <i class="fa fa-angle-right" style="margin: 0 5px;"></i> 
+            <a href="/air-import/list" style="color: #8e9eae; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#337ab7';" onmouseout="this.style.color='#8e9eae';">Air Import</a> <i class="fa fa-angle-right" style="margin: 0 5px;"></i> 
+            <span style="color: #333; font-weight: 700;">New Shipment</span>
+        </div>
+
+        <!-- Toolbar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h1 class="caption-subject" style="font-size: 18px;">Create Air Import Shipment</h1>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" @click="saveShipment" class="btn-gofreight"><i class="fa fa-save"></i> SAVE SHIPMENT</button>
+                <a href="/air-import/list" class="btn-default-gf">BACK TO LIST</a>
+            </div>
+        </div>
+
+        <!-- Main Tabs -->
+        <ul class="gf-tabs">
+            <li :class="activeTab === 'basic' ? 'active' : ''" @click="activeTab = 'basic'"><a>Main</a></li>
+            <li :class="[activeTab === 'container' ? 'active' : '', !saved ? 'disabled-tab' : '']" @click="saved ? activeTab = 'container' : null"><a>Container & Items</a></li>
+            <li :class="[activeTab === 'charges' ? 'active' : '', !saved ? 'disabled-tab' : '']" @click="saved ? activeTab = 'charges' : null"><a>Charges</a></li>
+            <li :class="[activeTab === 'history' ? 'active' : '', !saved ? 'disabled-tab' : '']" @click="saved ? activeTab = 'history' : null"><a>History</a></li>
+            <li :class="[activeTab === 'filing' ? 'active' : '', !saved ? 'disabled-tab' : '']" @click="saved ? activeTab = 'filing' : null"><a>Filing</a></li>
+        </ul>
+
+        <div style="padding-bottom: 50px;">
+            <!-- BASIC TAB -->
+            <div x-show="activeTab === 'basic'" class="main-grid" x-cloak>
+                <div class="portlet light">
+                    <div @click="showMblSection = !showMblSection" class="portlet-title" style="cursor: pointer; background: #f9fafb;">
+                        <span class="caption-subject"><i class="fa" :class="showMblSection ? 'fa-minus-square-o' : 'fa-plus-square-o'"></i> MAWB</span>
+                        <div class="actions">
+                            <i class="fa fa-angle-down transition-transform" :class="showMblSection ? 'rotate-180' : ''"></i>
+                        </div>
+                    </div>
+                    <div class="portlet-body" x-show="showMblSection">
+                        <!-- Reminder Section for MAWB -->
+                        <div class="memo-section" style="margin-bottom: 10px;">
+                            <div class="memo-header" @click="showMblMemo = !showMblMemo">
+                                <span>Note</span>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <button type="button" class="btn-memo-doc" @click.stop="showDocModal = true">Document (0) <i class="fa fa-external-link"></i></button>
+                                    <i class="fa" :class="showMblMemo ? 'fa-angle-up' : 'fa-angle-down'"></i>
+                                </div>
+                            </div>
+                            <div class="memo-body" x-show="showMblMemo">
+                                <div style="display: flex; gap: 10px;">
+                                    <div style="flex: 2;">
+                                        <table class="memo-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 30px; background: #32c5d2; border: none; text-align: center;"><i class="fa fa-plus"></i></th>
+                                                    <th><i class="fa fa-bell"></i> Subject <i class="fa fa-sort float-right opacity-50"></i></th>
+                                                    <th>Last Modified <i class="fa fa-sort float-right opacity-50"></i></th>
+                                                    <th>Created <i class="fa fa-sort float-right opacity-50"></i></th>
+                                                    <th>Action / TP</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td colspan="5" style="text-align: center; color: #999; padding: 10px;">No records found.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <textarea class="memo-content-area" placeholder="Reminder content..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-grid-4">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">File No.</label><div class="form-input-container"><input type="text" class="form-control-gf" value="MAI-25040001" disabled style="background:#f5f5f5;"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Post Date</label><div class="form-input-container"><input type="date" class="form-control-gf" disabled style="background:#f5f5f5;"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Co-loader</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Direct Master</label><div class="form-input-container" style="justify-content: flex-start;"><input type="checkbox" x-model="isDirectMaster"></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf" style="color:red;">*MAWB No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Oversea Agent</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">OP</label><div class="form-input-container"><input type="text" class="form-control-gf" value="DEMO_925 (DEMO_925)" disabled style="background:#f5f5f5;"></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf" style="color:red;">*Office</label><div class="form-input-container"><select class="form-control-gf"><option>MEO</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Carrier</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">AWB Type</label><div class="form-input-container"><select class="form-control-gf"><option>NORMAL</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">AWB Acct. Carrier</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                            </div>
+                        </div>
+
+                        <div style="height: 15px;"></div>
+
+                        <div class="form-grid-4">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Departure</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ETD</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Freight Location</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Destination</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ATD</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Storage Start Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Flight No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf" style="color:red;">*ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf" style="cursor:pointer; color:#333;">Connecting Flight <i class="fa fa-plus-square-o"></i></label><div class="form-input-container"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ATA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+                        </div>
+
+                        <div style="height: 15px;"></div>
+
+                        <div class="form-grid-4">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf">
+                                    <label class="form-label-gf">Package</label>
+                                    <div class="form-input-container" style="gap: 2px;">
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;">
+                                        <select class="form-control-gf" style="flex:1; min-width:0;"><option>CARTON(S)</option></select>
+                                    </div>
+                                </div>
+                                <div class="form-group-gf">
+                                    <label class="form-label-gf">Gross Weight</label>
+                                    <div class="form-input-container" style="gap: 4px; align-items:center;">
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;"> <span style="font-size:10px; color:#555;">KG</span>
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;"> <span style="font-size:10px; color:#555;">LB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf" style="margin-bottom: 2px;">
+                                    <label class="form-label-gf"></label>
+                                    <div class="form-input-container" style="align-items:flex-start;">
+                                        <button type="button" class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px;">Sum Package & Weight</button>
+                                    </div>
+                                </div>
+                                <div class="form-group-gf">
+                                    <label class="form-label-gf">Chargeable Weight</label>
+                                    <div class="form-input-container" style="gap: 4px; align-items:center;">
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;"> <span style="font-size:10px; color:#555;">KG</span>
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;"> <span style="font-size:10px; color:#555;">LB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col" style="grid-column: span 2;">
+                                <div style="height: 20px; margin-bottom: 1px;"></div>
+                                <div class="form-group-gf">
+                                    <label class="form-label-gf">Volume Weight</label>
+                                    <div class="form-input-container" style="gap: 8px; align-items:center;">
+                                        <button type="button" class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px; flex-shrink:0;">Set Dimensions</button>
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;"> <span style="font-size:10px; color:#555;">KG</span>
+                                        <input type="text" class="form-control-gf" style="flex:1; min-width:0;"> <span style="font-size:10px; color:#555;">CBM</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="height: 15px;"></div>
+
+                        <div class="form-grid-4">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Freight</label><div class="form-input-container"><select class="form-control-gf"><option></option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Business Referred By</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Incoterms</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Stackable</label><div class="form-input-container" style="font-size:10px; gap:4px; justify-content: flex-start; align-items:center;"><input type="radio" name="stackable" checked> Yes <input type="radio" name="stackable"> No</div></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Service Term</label><div class="form-input-container"><select class="form-control-gf" style="width:45%;"><option>AIRPORT</option></select><span class="mx-1">~</span><select class="form-control-gf" style="width:45%;"><option>AIRPORT</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Cargo Type</label><div class="form-input-container"><select class="form-control-gf"><option>GENERAL CARGO</option></select></div></div>
+                            </div>
+                            <div class="flex flex-col"></div>
+                        </div>
+
+                        <div style="height: 5px;"></div>
+                        <div style="margin-bottom: 10px;">
+                            <button type="button" @click="showMore = !showMore" class="btn-default-gf" style="border:none; color:#00827f; font-weight:700;">
+                                <span x-text="showMore ? 'More [-]' : 'More [+]'"></span>
+                            </button>
+                        </div>
+
+                        <div class="form-grid-4" x-show="showMore">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">E-Commerce</label><div class="form-input-container" style="justify-content: flex-start; align-items:center;"><input type="checkbox" style="width: 14px; height: 14px;"></div></div>
+                            </div>
+                            <div class="flex flex-col"></div>
+                            <div class="flex flex-col"></div>
+                            <div class="flex flex-col"></div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; margin-top: 15px; margin-bottom: 5px; align-items: center; gap: 10px;">
+                            <label class="form-label-gf" style="width:auto; margin:0;">Display Unit</label>
+                            <select class="form-control-gf" style="width: 150px;"><option>Show Both</option><option>show KG/CBM</option><option>show LB/CFT</option></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- House B/L (HAWB) Section -->
+                <template x-for="(hawb, index) in hawbs" :key="index">
+                    <div class="portlet light" style="margin-top: 5px;">
+                        <div class="portlet-title" style="background: #f2bc00; color: #fff; cursor: pointer; min-height: 24px; padding: 2px 10px;" @click="hawb.show = !hawb.show">
+                            <span class="caption-subject" style="color: #fff; font-size: 11px;"><i class="fa fa-user"></i> HAWB Information <small style="color:rgba(255,255,255,0.8); margin-left: 10px; font-weight: normal;">OP : {{ auth()->user()->name ?? 'DEMO_USER' }}</small></span>
+                            <div class="actions" style="display: flex; gap: 10px; align-items: center;">
+                                <i @click.stop="removeHbl(index)" class="fa fa-times" style="font-size: 12px; opacity: 0.8; cursor: pointer;"></i>
+                                <i class="fa fa-angle-down transition-transform" :class="hawb.show ? 'rotate-180' : ''" style="font-size: 12px;"></i>
+                            </div>
+                        </div>
+                        <div class="portlet-body" x-show="hawb.show" style="background: #f9f9f9; padding: 10px;">
+                            
+                            <div class="memo-section" style="margin-bottom: 15px;">
+                                <div class="memo-header" @click="hawb.showMemo = !hawb.showMemo" style="background:#fff; border:1px solid #eef1f5; padding:4px 10px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                                    <span style="font-size:11px; font-weight:600; color:#666;">Note</span>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <button type="button" class="btn-memo-doc" style="background:#eee; border:1px solid #ccc; font-size:10px; padding:1px 8px;" @click.stop="showDocModal = true">Document (0) <i class="fa fa-external-link"></i></button>
+                                        <i class="fa" :class="hawb.showMemo ? 'fa-angle-up' : 'fa-angle-down'"></i>
+                                    </div>
+                                </div>
+                                <div class="memo-body" x-show="hawb.showMemo" style="border:1px solid #eef1f5; border-top:none; background:#fff; padding:10px;">
+                                    <div style="display: flex; gap: 10px;">
+                                        <div style="flex: 2;">
+                                            <table class="memo-table" style="width:100%; border-collapse:collapse; font-size:11px;">
+                                                <thead>
+                                                    <tr style="background:#f9f9f9;">
+                                                        <th style="width: 30px; background: #32c5d2; border: none; text-align: center; color:#fff;"><i class="fa fa-plus"></i></th>
+                                                        <th style="border:1px solid #eee; padding:5px; text-align:left;"><i class="fa fa-bell"></i> Subject</th>
+                                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">Last Modified</th>
+                                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">Created</th>
+                                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">Action / TP</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td colspan="5" style="text-align: center; color: #999; padding: 10px; border:1px solid #eee;">No records found.</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <textarea style="width:100%; height:80px; font-size:11px; padding:5px; border:1px solid #eee; resize:none;" placeholder="Reminder content..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-grid-4">
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf" style="color:red;">*HAWB No.</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="hawb.hbl_no"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Shipper</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-edit"></i></button><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Bill To</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Quotation No.</label><div class="form-input-container"><select class="form-control-gf" disabled style="background:#eee;"><option>Select...</option></select></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Consignee</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-edit"></i></button><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Customs Broker</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">HSN</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Notify</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-edit"></i></button><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Sales</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div style="height: 21px;"></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Customer</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">OP</label><div class="form-input-container"><input type="text" class="form-control-gf" value="DEMO_925 (DEMO_925)" disabled style="background:#eee;"></div></div>
+                                </div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div class="form-grid-4">
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Freight Location</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Trucker</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Final Destination</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Last Free Day</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Final ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Storage Start Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Delivery Location</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select><button type="button" class="btn-default-gf" style="height:20px; padding:0 4px;"><i class="fa fa-external-link-square"></i></button></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Freight</label><div class="form-input-container"><select class="form-control-gf"><option>COLLECT</option><option>PREPAID</option></select></div></div>
+                                </div>
+                            </div>
+                            <div class="form-grid-4">
+                                <div class="flex flex-col"><div class="form-group-gf"><label class="form-label-gf">Sales Type</label><div class="form-input-container"><select class="form-control-gf"><option></option><option>CO-LOAD</option><option>FREE CARGO</option><option>NOMI</option></select></div></div></div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div class="form-grid-4">
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Package</label><div class="form-input-container" style="gap:2px;"><input type="text" class="form-control-gf" style="width:40%;"><select class="form-control-gf" style="width:60%;"><option>CARTON(S)</option></select></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Gross Weight</label><div class="form-input-container" style="gap:4px; align-items:center;"><input type="text" class="form-control-gf" style="flex:1;"> <span style="font-size:10px;">KG</span> <input type="text" class="form-control-gf" style="flex:1;"> <span style="font-size:10px;">LB</span></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div style="height: 21px;"></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Chargeable Weight</label><div class="form-input-container" style="gap:4px; align-items:center;"><input type="text" class="form-control-gf" style="flex:1;"> <span style="font-size:10px;">KG</span> <input type="text" class="form-control-gf" style="flex:1;"> <span style="font-size:10px;">LB</span></div></div>
+                                </div>
+                                <div class="flex flex-col" style="grid-column: span 2;">
+                                    <div style="height: 21px;"></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Volume Weight</label><div class="form-input-container" style="gap:8px; align-items:center;"><button class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px; flex-shrink:0;">Set Dimensions</button><input type="text" class="form-control-gf" style="flex:1;"> <span style="font-size:10px;">KG</span> <input type="text" class="form-control-gf" style="flex:1;"> <span style="font-size:10px;">CBM</span></div></div>
+                                </div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div class="form-grid-4">
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Entry No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Released By</label><div class="form-input-container"><select class="form-control-gf" disabled><option>Select...</option></select></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Door Delivered</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Class of Entry</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Cargo Released To</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Ship Type</label><div class="form-input-container"><select class="form-control-gf"><option>NORMAL</option><option>S/W</option><option>T/S</option></select></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div class="form-group-gf"><label class="form-label-gf">Frt. Released</label><div class="form-input-container" style="gap:5px; align-items:center;"><input type="checkbox"> <input type="date" class="form-control-gf" disabled></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">C. Released Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Incoterms</label><div class="form-input-container"><select class="form-control-gf"><option></option><option>CFR</option><option>CIF</option><option>FOB</option><option>EXW</option></select></div></div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div style="height: 21px;"></div>
+                                    <div style="height: 21px;"></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Service Term</label><div class="form-input-container"><select class="form-control-gf" style="width:45%;"><option>AIRPORT</option></select><span class="mx-1">~</span><select class="form-control-gf" style="width:45%;"><option>AIRPORT</option></select></div></div>
+                                </div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div style="margin-bottom: 10px;">
+                                <button type="button" @click="hawb.showMore = !hawb.showMore" class="btn-default-gf" style="border:none; color:#00827f; font-weight:700;">
+                                    <span x-text="hawb.showMore ? 'More [-]' : 'More [+]'"></span>
+                                </button>
+                            </div>
+
+                            <div class="form-grid-4" x-show="hawb.showMore">
+                                <div class="form-group-gf"><label class="form-label-gf">E-Commerce</label><div class="form-input-container" style="justify-content: flex-start; align-items:center;"><input type="checkbox" style="width: 14px; height: 14px;"></div></div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #444;">Sub HAWB</span>
+                                <div style="display: flex; gap: 5px;">
+                                    <button type="button" class="btn-tool-icon" style="background:#26c281; color:#fff; border-color:#26c281; padding:0 6px;" @click="hawb.subHawbs.push({no:'', description:'', pcs:'', unit:'', amount:'', selected:false})"><i class="fa fa-plus"></i></button>
+                                    <button type="button" class="btn-tool-icon" :disabled="hawb.subHawbs.filter(s=>s.selected).length === 0" :style="hawb.subHawbs.filter(s=>s.selected).length === 0 ? 'opacity:0.4; cursor:not-allowed;' : 'color:red; border-color:red;'" style="padding:0 6px;" @click="hawb.subHawbs = hawb.subHawbs.filter(s=>!s.selected)"><i class="fa fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <table class="table-custom" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:10px;">
+                                <thead>
+                                    <tr style="background:#f9f9f9;">
+                                        <th style="width: 30px; text-align: center; border:1px solid #eee;"><input type="checkbox" @change="hawb.subHawbs.forEach(s => s.selected = $event.target.checked)"></th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;"><span style="color:red;">*</span>Sub HAWB</th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">Description / IT No.</th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">PCS</th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">PKG Unit</th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(sub, si) in hawb.subHawbs" :key="si">
+                                        <tr :style="sub.selected ? 'background:#fef9e7;' : ''">
+                                            <td style="text-align: center; border:1px solid #eee;"><input type="checkbox" x-model="sub.selected"></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><input type="text" class="form-control-gf" x-model="sub.no" placeholder="Sub HAWB No." style="border:none;"></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><input type="text" class="form-control-gf" x-model="sub.description" style="border:none;"></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><input type="number" class="form-control-gf" x-model="sub.pcs" style="border:none; width:60px;"></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><select class="form-control-gf" x-model="sub.unit" style="border:none;"><option>CARTON(S)</option><option>PALLET(S)</option><option>PIECE(S)</option></select></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><input type="number" class="form-control-gf" x-model="sub.amount" style="border:none;"></td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="hawb.subHawbs.length === 0"><td colspan="6" style="text-align: center; color: #999; padding: 10px; border:1px solid #eee;">No records found. Click <strong style="color:#26c281; cursor:pointer;" @click="hawb.subHawbs.push({no:'',description:'',pcs:'',unit:'CARTON(S)',amount:'',selected:false})">+ Add</strong> to create one.</td></tr>
+                                </tbody>
+                            </table>
+
+                            <div style="display: flex; justify-content: flex-end; margin-top: 10px; align-items: center; gap: 10px;">
+                                <label class="form-label-gf" style="width:auto; margin:0;">Display Unit</label>
+                                <select class="form-control-gf" style="width: 150px;"><option>Show Both</option><option>Show KG / CBM</option><option>Show LB / CFT</option></select>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div style="margin-bottom: 10px;">
+                                <h4 style="font-size: 11px; font-weight: 600; color: #333; margin: 0 0 5px 0;">Customer Reference / P.O. No. <span style="font-weight: normal; font-size: 10px; color: #777;">Please list down P.O. No. for this HAWB</span></h4>
+                                <div style="border: 1px solid #ccc; padding: 5px; min-height: 30px; background: #fff;">
+                                    <input type="text" placeholder="Add P.O. here..." style="border: none; outline: none; font-size: 11px; width: 100%;">
+                                </div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #444;">Commodity</span>
+                                <div style="display: flex; gap: 5px;">
+                                    <button type="button" class="btn-tool-icon" style="background:#26c281; color:#fff; border-color:#26c281; padding:0 6px;" @click="hawb.commodities.push({description:'', po_no:'', selected:false})"><i class="fa fa-plus"></i></button>
+                                    <button type="button" class="btn-tool-icon" :disabled="hawb.commodities.filter(c=>c.selected).length === 0" :style="hawb.commodities.filter(c=>c.selected).length === 0 ? 'opacity:0.4; cursor:not-allowed;' : 'color:red; border-color:red;'" style="padding:0 6px;" @click="hawb.commodities = hawb.commodities.filter(c=>!c.selected)"><i class="fa fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <table class="table-custom" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:10px;">
+                                <thead>
+                                    <tr style="background:#f9f9f9;">
+                                        <th style="width: 30px; text-align: center; border:1px solid #eee;"><input type="checkbox" @change="hawb.commodities.forEach(c => c.selected = $event.target.checked)"></th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;"><span style="color:red;">*</span>Commodity Description</th>
+                                        <th style="border:1px solid #eee; padding:5px; text-align:left;">P.O. No.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(com, ci) in hawb.commodities" :key="ci">
+                                        <tr :style="com.selected ? 'background:#fef9e7;' : ''">
+                                            <td style="text-align: center; border:1px solid #eee;"><input type="checkbox" x-model="com.selected"></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><input type="text" class="form-control-gf" x-model="com.description" style="border:none;" placeholder="Commodity description..."></td>
+                                            <td style="border:1px solid #eee; padding:2px;"><input type="text" class="form-control-gf" x-model="com.po_no" style="border:none;"></td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="hawb.commodities.length === 0"><td colspan="3" style="text-align: center; color: #999; padding: 10px; border:1px solid #eee;">No Data Available. Click <strong style="color:#4b77be; cursor:pointer;" @click="hawb.commodities.push({description:'',po_no:'',selected:false})">here</strong> to add a new row.</td></tr>
+                                </tbody>
+                            </table>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #444;">Warehouse Receipt List</span>
+                                <div style="display: flex; gap: 5px;">
+                                    <select class="form-control-gf" style="width: 150px; height: 20px;"><option>Warehouse Receipt</option></select>
+                                    <button type="button" class="btn-tool-icon" disabled style="padding:0 6px;"><i class="fa fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <div style="overflow-x:auto;">
+                                <table class="table-custom" style="width:100%; border-collapse:collapse; font-size:10px; min-width:800px;">
+                                    <thead>
+                                        <tr style="background:#f9f9f9;">
+                                            <th style="width: 30px; text-align: center; border:1px solid #eee;"><input type="checkbox"></th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Receipt No.</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Length</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Width</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Height</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Dimension</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">TOTAL PCS</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Available PCS</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Allocated PCS</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Unit</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Gross Weight</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Volume</th>
+                                            <th style="border:1px solid #eee; padding:5px; text-align:left;">Measurement</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="13" style="padding: 10px; border:1px solid #eee;">
+                                                <button type="button" class="btn-tool" style="background:#32c5d2; color:#fff; border:none; padding:4px 10px; margin-bottom: 5px; font-size:10px;" @click="showWrModal = true; searchWarehouseList()"><i class="fa fa-external-link-square"></i> Load from Warehouse</button>
+                                                <div style="display: flex; gap: 15px; font-size: 10px; align-items: center;">
+                                                    <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" checked> Auto-sync package, weight and measurements</label>
+                                                    <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox"> Auto-sync dimensions</label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div class="form-grid-4" style="grid-template-columns: repeat(2, 1fr);">
+                                <div class="flex flex-col">
+                                    <h4 style="font-size: 11px; font-weight: 600; margin: 0 0 5px 0; color: #333;">Mark</h4>
+                                    <textarea class="form-control-gf" style="height: 60px !important; resize: vertical; padding:5px;"></textarea>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                        <h4 style="font-size: 11px; font-weight: 600; margin: 0; color: #333;">Description</h4>
+                                        <div style="display: flex; gap: 3px; align-items: center;">
+                                            <span style="font-size: 9px; color: #555;">Copy:</span>
+                                            <button type="button" class="btn-default-gf" style="font-size: 9px; padding: 0 4px; height: 18px;">P.O.</button>
+                                            <button type="button" class="btn-default-gf" style="font-size: 9px; padding: 0 4px; height: 18px;">Commodity</button>
+                                            <button type="button" class="btn-default-gf" style="font-size: 9px; padding: 0 4px; height: 18px;">Commodity & HTS</button>
+                                        </div>
+                                    </div>
+                                    <textarea class="form-control-gf" style="height: 60px !important; resize: vertical; padding:5px;"></textarea>
+                                </div>
+                            </div>
+
+                            <hr style="margin: 10px 0; border-top: 1px solid #ddd;">
+
+                            <div>
+                                <h4 style="font-size: 11px; font-weight: 600; margin: 0 0 5px 0; color: #333;">Remark</h4>
+                                <textarea class="form-control-gf" style="height: 50px !important; resize: vertical; padding:5px;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="flex justify-end" style="margin-top: 5px; margin-bottom: 20px;">
+                    <button type="button" @click="addHbl" class="btn-gofreight" style="background:#f2bc00; padding: 4px 15px; font-size: 11px; border-radius: 2px;"><i class="fa fa-plus"></i> ADD HAWB</button>
+                </div>
+            </div>
+
+            <!-- CONTAINER & ITEMS TAB -->
+            <div x-show="activeTab === 'container'" class="main-grid" x-cloak>
+                <div class="portlet light">
+                    <div class="portlet-title">
+                        <span class="caption-subject"><i class="fa fa-cube"></i> Container List</span>
+                    </div>
+                    <div class="portlet-body">
+                        <div class="container-toolbar">
+                            <div style="display: flex; gap: 2px;">
+                                <button type="button" @click="addContainer()" class="btn-tool-icon btn-tool-icon-blue" title="Add Row"><i class="fa fa-plus"></i></button>
+                                <button type="button" @click="addContainer(5)" class="btn-tool-icon" title="Add 5 Rows">+5</button>
+                                <button type="button" class="btn-tool-icon" title="Add Bulk"><i class="fa fa-plus-square"></i></button>
+                                <button type="button" class="btn-tool-icon" title="Duplicate"><i class="fa fa-copy"></i></button>
+                                <button type="button" @click="deleteSelectedContainers" class="btn-tool-icon" style="color:red; border-color:red;" title="Delete Selected"><i class="fa fa-trash"></i></button>
+                            </div>
+                            <div style="display: flex; gap: 4px; margin-left: 10px;">
+                                <button type="button" class="btn-tool"><i class="fa fa-cloud-upload"></i> Import Container</button>
+                                <button type="button" class="btn-tool-outline">Create A/P <i class="fa fa-angle-down"></i></button>
+                                <button type="button" class="btn-tool-outline" style="color:#4b77be; border-color:#4b77be;">Copy Data from All HAWB</button>
+                                <button type="button" @click="showClipboardModal = true" class="btn-tool-outline">Container info to clipboard <i class="fa fa-external-link"></i></button>
+                            </div>
+                            <div style="margin-left: auto;">
+                                <button type="button" class="btn-tool-secondary" style="background: #9b59b6;"><i class="fa fa-sign-out"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="container-table">
+                                <colgroup>
+                                    <col style="width: 30px;">
+                                    <col style="width: 30px;">
+                                    <col style="width: 60px;">
+                                    <col style="width: 160px;">
+                                    <col style="width: 80px;">
+                                    <col style="width: 100px;">
+                                    <col style="width: 100px;">
+                                    <col style="width: 100px;">
+                                    <col style="width: 120px;">
+                                    <col style="width: 100px;">
+                                    <col style="width: 100px;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" @change="toggleAllContainers"></th>
+                                        <th>#</th>
+                                        <th>PP/CTF</th>
+                                        <th>Container No.</th>
+                                        <th>TP/SZ</th>
+                                        <th>Seal No.</th>
+                                        <th>LFD</th>
+                                        <th>FDD</th>
+                                        <th>
+                                            <div class="header-split">
+                                                <div class="header-top">PKG</div>
+                                                <div class="header-bottom">CARTON(S)</div>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="header-split">
+                                                <div class="header-top">Weight</div>
+                                                <div class="header-bottom">KG</div>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="header-split">
+                                                <div class="header-top" style="font-size:9px;">Measurement</div>
+                                                <div class="header-bottom">CBM</div>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <template x-for="(cont, idx) in form.containers" :key="idx">
+                                    <tbody style="border:none;">
+                                        <tr class="row-main">
+                                            <td style="width:30px;"><input type="checkbox" x-model="cont.selected" style="display:block; margin:auto;"></td>
+                                            <td style="width:30px; text-align:center;">
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <i @click.stop="cont.expanded = !cont.expanded" class="fa fa-sun-o cursor-pointer text-gray-400 hover:text-blue-500" style="font-size:12px;"></i>
+                                                    <span x-text="idx + 1" style="font-weight:bold;"></span>
+                                                </div>
+                                            </td>
+                                            <td style="width:60px;"><input type="text" class="form-control-gf" x-model="cont.pp_ctf"></td>
+                                            <td style="width:160px;">
+                                                <div class="flex items-center gap-1">
+                                                    <input type="text" class="form-control-gf" x-model="cont.number">
+                                                    <button type="button" @click.stop="cont.expanded = !cont.expanded" class="btn-default-gf" style="padding: 0 4px; height: 16px; line-height: 1; min-width: 16px; border-radius:0; background:#fff; border:1px solid #ccc;">
+                                                        <i class="fa fa-minus text-gray-500" style="font-size:10px;"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td style="width:80px;"><select class="form-control-gf" x-model="cont.type"><option>40'HQ</option><option>20'GP</option></select></td>
+                                            <td style="width:100px;"><input type="text" class="form-control-gf" x-model="cont.seal"></td>
+                                            <td style="width:100px;"><input type="date" class="form-control-gf" x-model="cont.lfd"></td>
+                                            <td style="width:100px;"><input type="date" class="form-control-gf" x-model="cont.fdd"></td>
+                                            <td style="width:120px;"><input type="number" class="form-control-gf" x-model="cont.pkg" style="text-align:right;"></td>
+                                            <td style="width:100px;"><input type="number" class="form-control-gf" x-model="cont.weight" style="text-align:right;"></td>
+                                            <td style="width:100px;"><input type="number" class="form-control-gf" x-model="cont.measure" style="text-align:right;"></td>
+                                        </tr>
+                                        <tr x-show="cont.expanded" class="expanded-row">
+                                            <td colspan="2" style="border-right: 1px solid #dcdcdc; background:#fff !important;"></td>
+                                            <td colspan="9">
+                                                <div class="expanded-container">
+                                                    <div class="expanded-col" style="width: 220px;">
+                                                        <div class="form-group-gf"><label class="form-label-gf">Seal No2.</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="cont.seal2"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">Pick Up No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">CPRS No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">CNRU No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">IT No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">D.G</label><div class="form-input-container"><select class="form-control-gf"><option>No</option><option>Yes</option></select></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">Storage Start</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">Storage End</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">Weight LB</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf">Measure CFT</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="mt-2">
+                                                            <div class="text-[9px] font-bold text-gray-500">Remarks</div>
+                                                            <textarea class="form-control-gf"></textarea>
+                                                        </div>
+                                                        <div class="mt-1">
+                                                            <div class="text-[9px] font-bold text-gray-500">Internal Remarks</div>
+                                                            <textarea class="form-control-gf"></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="expanded-col" style="width: 180px;">
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Carrier rel.</label><div class="form-input-container"><input type="checkbox" style="width:12px;height:12px;"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Yard Loc.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Unload Vessel</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Gate In</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Rail Start</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">P.O.D ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Avail Pickup</label><div class="form-input-container"><input type="checkbox" style="width:12px;height:12px;"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Appt.</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Trucker</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Pick Up</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Gate Out</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">F.Dest ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">ETA Door</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">ATA Door</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Empty Conf.</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Empty Ret.</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                                        <div class="form-group-gf"><label class="form-label-gf" style="width:65px;">Complete</label><div class="form-input-container"><input type="checkbox" style="width:12px;height:12px;"></div></div>
+                                                    </div>
+                                                    <div class="expanded-col flex-1" style="background: #fff; border-right:none;">
+                                                        <div class="hawb-header">HAWB No.</div>
+                                                        <div style="border: 1px solid #eee; min-height: 200px; background: #fff;"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </template>
+                                <tfoot>
+                                    <tr class="total-row">
+                                        <td colspan="6" style="border:none;"></td>
+                                        <td colspan="2" class="total-label-cell">Total</td>
+                                        <td class="total-val-cell"><span x-text="calculateTotal('pkg')"></span></td>
+                                        <td class="total-val-cell"><span x-text="calculateTotal('weight').toFixed(2)"></span></td>
+                                        <td class="total-val-cell"><span x-text="calculateTotal('measure').toFixed(2)"></span></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px; font-size: 11px;">
+                            <span style="color:#333;">Total</span>
+                            <div class="flex items-center gap-1">
+                                <input type="checkbox" id="input-total-new">
+                                <label for="input-total-new" style="font-weight:normal; color:#555;">Input total number</label>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; margin-top: 5px; align-items: center; gap: 10px;">
+                            <label class="form-label-gf">Display Unit</label>
+                            <select class="form-control-gf" style="width: 150px;"><option>Show Both</option></select>
+                        </div>
+
+                        <div style="display: flex; gap: 20px; margin-top: 15px;">
+                            <div style="flex: 1;">
+                                <label class="caption-subject" style="font-size: 11px; margin-bottom: 5px; display: block;">Mark</label>
+                                <textarea class="form-control-gf" style="height: 80px;"></textarea>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <label class="caption-subject" style="font-size: 11px;">Description</label>
+                                    <button type="button" class="btn-tool" style="padding: 2px 8px; font-size: 10px;">Copy from All HAWB</button>
+                                </div>
+                                <textarea class="form-control-gf" style="height: 80px;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal for Clipboard -->
+            <div x-show="showClipboardModal" class="modal-overlay" x-cloak>
+                <div class="modal-container" @click.away="showClipboardModal = false">
+                    <div class="modal-header">
+                        <span style="font-weight:700;">Container List</span>
+                        <i class="fa fa-times cursor-pointer" @click="showClipboardModal = false"></i>
+                    </div>
+                    <div class="modal-body">
+                        <table class="memo-table">
+                            <thead>
+                                <tr>
+                                    <th>Container No.</th>
+                                    <th>TP/SZ</th>
+                                    <th>Seal No.</th>
+                                    <th>PKG (CARTON(S))</th>
+                                    <th>TARE (KG)</th>
+                                    <th>VGM (KG)</th>
+                                    <th>Net Weight (KG)</th>
+                                    <th>Gross Weight (KG)</th>
+                                    <th>Measurement (CBM)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="cont in form.containers">
+                                    <tr>
+                                        <td x-text="cont.number || '-'"></td>
+                                        <td x-text="cont.type || '-'"></td>
+                                        <td x-text="cont.seal || '-'"></td>
+                                        <td x-text="cont.pkg || '0'"></td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td x-text="cont.weight || '0.00'"></td>
+                                        <td x-text="cont.measure || '0.00'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-tool" id="clipboard-copy-btn" style="background:#4b77be; padding: 6px 15px;" @click="
+                            const rows = form.containers.map(c => [c.number||'-', c.type||'-', c.seal||'-', c.pkg||0, c.weight||0, c.measure||0].join('\t')).join('\n');
+                            const header = 'Container No.\tTP/SZ\tSeal No.\tPKG\tGross Weight (KG)\tMeasurement (CBM)';
+                            navigator.clipboard.writeText(header + '\n' + rows).then(() => {
+                                $el.textContent = '✓ COPIED!'; $el.style.background = '#26c281';
+                                setTimeout(() => { $el.textContent = 'COPY TO CLIPBOARD'; $el.style.background = '#4b77be'; }, 2000);
+                            });
+                        ">COPY TO CLIPBOARD</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warehouse Receipt Modal -->
+            <div x-show="showWrModal" style="position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;" @click.self="showWrModal = false" x-cloak>
+                <div style="background: #fff; width: 800px; max-height: 85vh; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.25);">
+                    <div style="padding: 10px 15px; background: #4b77be; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                        <span style="font-size: 13px; font-weight: 700;"><i class="fa fa-archive"></i> Load from Warehouse Receipt List</span>
+                        <button type="button" @click="showWrModal = false" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+                    <div style="padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0;">
+                        <input type="text" class="form-control-gf" x-model="wrSearchQuery" placeholder="Search by receipt no, shipper, description..." style="flex: 1;" @keyup.enter="searchWarehouseList()">
+                        <button type="button" class="btn-gofreight" style="padding: 0 14px; font-size: 11px;" @click="searchWarehouseList()"><i class="fa fa-search"></i> Search</button>
+                    </div>
+                    <div style="flex: 1; overflow-y: auto; padding: 10px 15px;">
+                        <div x-show="wrLoading" style="text-align: center; padding: 30px; color: #888;"><i class="fa fa-spinner fa-spin fa-2x"></i><div style="margin-top:8px; font-size:12px;">Loading warehouse receipts...</div></div>
+                        <div x-show="!wrLoading && wrSearchResults.length === 0" style="text-align: center; padding: 30px; color: #aaa; font-size: 12px;"><i class="fa fa-inbox fa-3x" style="display:block; margin-bottom:8px;"></i>No warehouse receipts found. Try searching above.</div>
+                        <table class="memo-table" x-show="!wrLoading && wrSearchResults.length > 0" style="font-size: 11px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px; text-align: center;"><input type="checkbox" @change="wrSearchResults.forEach(r => r.selected = $event.target.checked)"></th>
+                                    <th>Receipt No.</th>
+                                    <th>Description</th>
+                                    <th style="text-align: right;">Total PCS</th>
+                                    <th style="text-align: right;">Avail PCS</th>
+                                    <th style="text-align: right;">Weight (KG)</th>
+                                    <th style="text-align: right;">Measure (CBM)</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(r, i) in wrSearchResults" :key="i">
+                                    <tr :style="r.selected ? 'background:#e8f0fe;' : ''" style="cursor: pointer;" @click="r.selected = !r.selected">
+                                        <td style="text-align: center;"><input type="checkbox" x-model="r.selected" @click.stop></td>
+                                        <td style="font-weight: 600; color: #337ab7;" x-text="r.receipt_no"></td>
+                                        <td x-text="r.description || '-'"></td>
+                                        <td style="text-align: right;" x-text="r.total_pcs || 0"></td>
+                                        <td style="text-align: right;" x-text="r.available_pcs || 0"></td>
+                                        <td style="text-align: right;" x-text="r.actual_weight || 0"></td>
+                                        <td style="text-align: right;" x-text="r.measurement || 0"></td>
+                                        <td x-text="r.remarks || '-'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="padding: 10px 15px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; flex-shrink: 0;">
+                        <span style="font-size: 11px; color: #888;" x-show="wrSearchResults.length > 0"><span x-text="wrSearchResults.filter(r=>r.selected).length"></span> item(s) selected</span>
+                        <span x-show="wrSearchResults.length === 0"></span>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn-default-gf" @click="showWrModal = false">Cancel</button>
+                            <button type="button" class="btn-gofreight" @click="loadSelectedWarehouse()" :disabled="wrSearchResults.filter(r=>r.selected).length === 0" :style="wrSearchResults.filter(r=>r.selected).length === 0 ? 'opacity:0.5; cursor:not-allowed;' : ''"><i class="fa fa-check"></i> Load Selected</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Modal -->
+            <div x-show="showDocModal" style="position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;" @click.self="showDocModal = false" x-cloak>
+                <div style="background: #fff; width: 750px; max-height: 85vh; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.25);">
+                    <div style="padding: 10px 15px; background: #4b77be; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                        <span style="font-size: 13px; font-weight: 700;"><i class="fa fa-files-o"></i> Documents</span>
+                        <button type="button" @click="showDocModal = false" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+                    <div style="padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0;">
+                        <button type="button" class="btn-gofreight" style="padding: 4px 14px; font-size: 11px;"><i class="fa fa-upload"></i> Upload Document</button>
+                        <button type="button" class="btn-tool-outline" style="padding: 4px 14px; font-size: 11px;"><i class="fa fa-link"></i> Attach Existing</button>
+                    </div>
+                    <div style="flex: 1; overflow-y: auto; padding: 15px;">
+                        <div style="text-align: center; padding: 40px; color: #aaa; font-size: 12px;">
+                            <i class="fa fa-file-o fa-3x" style="display:block; margin-bottom:10px; color:#ddd;"></i>
+                            <div style="font-weight: 600; color: #999;">No documents attached yet.</div>
+                            <div style="margin-top: 5px;">Upload or attach documents using the buttons above.</div>
+                        </div>
+                    </div>
+                    <div style="padding: 10px 15px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #f8f9fa; flex-shrink: 0;">
+                        <button type="button" class="btn-default-gf" @click="showDocModal = false">Close</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- CHARGES TAB -->
+            <div x-show="activeTab === 'charges'" class="main-grid" x-cloak>
+                <div class="portlet light">
+                    <div class="portlet-title">
+                        <span class="caption-subject"><i class="fa fa-money"></i> Charges</span>
+                    </div>
+                    <div class="portlet-body">
+                        <p style="text-align: center; color: #888; padding: 40px;">Charges management system under development.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORY TAB -->
+            <div x-show="activeTab === 'history'" class="main-grid" x-cloak>
+                <div class="portlet light">
+                    <div class="portlet-title">
+                        <span class="caption-subject"><i class="fa fa-history"></i> History</span>
+                    </div>
+                    <div class="portlet-body">
+                        <div style="margin-bottom: 20px; padding: 15px; background: #f9fafb; border: 1px solid #eee; border-radius: 4px;">
+                            <div class="caption-subject" style="font-size: 11px; margin-bottom: 10px; font-weight: bold; color: #4b77be; text-transform: uppercase;">Shipment Status Logs</div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <div style="background: #ebf5ff; color: #4b77be; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; border-left: 3px solid #4b77be;">BOOKING</div>
+                                <div style="background: #e6fffa; color: #2d6a4f; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; border-left: 3px solid #2d6a4f;">MAWB SUBMIT</div>
+                                <div style="background: #e6fffa; color: #2d6a4f; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; border-left: 3px solid #2d6a4f;">AMS SUBMIT</div>
+                                <div style="background: #e6fffa; color: #2d6a4f; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; border-left: 3px solid #2d6a4f;">ISF SUBMIT</div>
+                                <div style="background: #e6fffa; color: #2d6a4f; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; border-left: 3px solid #2d6a4f;">BL RELEASE</div>
+                                <div style="background: #e6fffa; color: #2d6a4f; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; border-left: 3px solid #2d6a4f;">BL SURRENDERED</div>
+                            </div>
+                        </div>
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>{{ date('Y-m-d H:i') }}</td>
+                                    <td>{{ auth()->user()->name ?? 'DEMO_USER' }}</td>
+                                    <td>Created</td>
+                                    <td>Shipment record initialized.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FILING TAB -->
+            <div x-show="activeTab === 'filing'" class="main-grid" x-cloak>
+                <div class="portlet light">
+                    <div class="portlet-title">
+                        <span class="caption-subject"><i class="fa fa-file-text-o"></i> Filing Details</span>
+                    </div>
+                    <div class="portlet-body">
+                        <div class="form-grid-4">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Shipper</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Bill To</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Oversea Agent</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div style="height: 5px;"></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Trucker</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">P.O.D ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Ship Mode</label><div class="form-input-container"><select class="form-control-gf"><option>FCL</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">G.O Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Consignee</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Sub B/L No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div style="height: 5px;"></div>
+                                <div class="form-group-gf"><label class="form-label-gf">CY/CFS Loc.</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Final Dest.</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Freight</label><div class="form-input-container"><select class="form-control-gf"><option>PREPAID</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Expiry Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Notify</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">OP</label><div class="form-input-container"><input type="text" class="form-control-gf" value="{{ auth()->user()->name ?? 'DEMO_USER' }}" disabled style="background:#f5f5f5;"></div></div>
+                                <div style="height: 19px;"></div>
+                                <div style="height: 5px;"></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Available</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Final ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">LFD</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">AMS No.</label><div class="form-input-container"><input type="text" class="form-control-gf"> <button class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ISF No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ISF Matched</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ISF 3rd Party</label><div class="form-input-container" style="justify-content: flex-start;"><input type="checkbox"></div></div>
+                            </div>
+                        </div>
+
+                        <div style="height: 15px;"></div>
+
+                        <div class="form-grid-4">
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Sales Type</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">C. Released</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Entry No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ROR</label><div class="form-input-container"><input type="checkbox"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Released By</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">DO Sent</label><div class="form-input-container"><input type="checkbox"> <input type="date" class="form-control-gf"></div></div>
+                            </div>
+
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Incoterms</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Service Term</label><div class="form-input-container"><select class="form-control-gf" style="width:45%;"><option>CY</option></select>~<select class="form-control-gf" style="width:45%;"><option>CY</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Entry DOC Sent</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Hold</label><div class="form-input-container"><input type="checkbox"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Door Deliv.</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                            </div>
+
+                            <div class="flex flex-col">
+                                <div class="form-group-gf"><label class="form-label-gf">Cargo Type</label><div class="form-input-container"><select class="form-control-gf"><option>GENERAL CARGO</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Container/Qty</label><div class="form-input-container"><input type="text" class="form-control-gf" disabled style="background:#f5f5f5;"></div></div>
+                            </div>
+                            
+                            <div class="flex flex-col"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load Quotation Data Modal -->
+        <div x-show="showQuoteModal" class="modal-overlay" x-cloak>
+            <div class="modal-container" style="max-width: 950px; width: 95%; max-height: 95vh; display: flex; flex-direction: column;">
+                <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
+                    <span style="font-weight: 300; font-size: 18px; color: #777;">Load Quotation Data</span>
+                    <i class="fa fa-times cursor-pointer text-gray-400 hover:text-gray-600" @click="window.location.href = '/air-import/create'" style="font-size: 16px;"></i>
+                </div>
+                
+                <div class="modal-body hide-scrollbar" style="padding: 15px 20px; background: #fff; overflow-y: auto; flex: 1;">
+                    <style>
+                        .hide-scrollbar::-webkit-scrollbar { display: none; }
+                        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                        .modal-body .table-custom th, .modal-body .table-custom td { padding: 3px 6px !important; font-size: 11px !important; }
+                        .modal-body .form-label-gf { font-size: 11px !important; }
+                        .modal-body h4 { font-size: 13px !important; margin-bottom: 6px !important; }
+                        .modal-body .form-control-gf { height: 20px !important; font-size: 11px !important; padding: 0 4px !important; }
+                        .wizard-circle { width: 18px; height: 18px; min-width: 18px; min-height: 18px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: bold; }
+                    </style>
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="wizard-circle" :style="quoteStep >= 1 ? 'background: #36c6d3;' : 'background: #999;'">
+                                <template x-if="quoteStep > 1"><i class="fa fa-check"></i></template>
+                                <template x-if="quoteStep === 1"><span>1</span></template>
+                            </div>
+                            <span :style="quoteStep >= 1 ? 'color: #333; font-size: 12px;' : 'color: #999; font-size: 12px;'">Select Quotation</span>
+                        </div>
+                        <div style="height: 1px; width: 30px; background: #ddd;"></div>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="wizard-circle" :style="quoteStep >= 2 ? 'background: #36c6d3;' : 'background: #999;'">
+                                <template x-if="quoteStep > 2"><i class="fa fa-check"></i></template>
+                                <template x-if="quoteStep <= 2"><span>2</span></template>
+                            </div>
+                            <span :style="quoteStep >= 2 ? 'color: #333; font-size: 12px;' : 'color: #999; font-size: 12px;'">Fill in shipment data</span>
+                        </div>
+                        <div style="height: 1px; width: 30px; background: #ddd;"></div>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="wizard-circle" :style="quoteStep >= 3 ? 'background: #36c6d3;' : 'background: #999;'">
+                                <span>3</span>
+                            </div>
+                            <span :style="quoteStep >= 3 ? 'color: #333; font-size: 12px;' : 'color: #999; font-size: 12px;'">Select invoice items</span>
+                        </div>
+                    </div>
+
+                    <div x-show="quoteStep === 1">
+                        <div class="form-grid-4" style="grid-template-columns: repeat(3, 1fr); gap: 10px 20px;">
+                            @php
+                                $agents = \App\Models\TradePartner::orderBy('name')->get();
+                                $ports = \App\Models\Port::orderBy('name')->get();
+                                $users = \App\Models\User::orderBy('name')->get();
+                            @endphp
+                            <div class="flex flex-col gap-1">
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Customer</label><div class="form-input-container">
+                                    <select class="form-control-gf" x-model="filters.customer">
+                                        <option value="">Select...</option>
+                                        @foreach($agents as $agent)
+                                            <option value="{{ $agent->id }}">{{ $agent->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Departure</label><div class="form-input-container">
+                                    <select class="form-control-gf" x-model="filters.pol">
+                                        <option value="">Select...</option>
+                                        @foreach($ports as $port)
+                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Quote No.</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.quote_no"></div></div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Valid Date</label><div class="form-input-container"><input type="date" class="form-control-gf" x-model="filters.valid_date"> <i class="fa fa-calendar" style="margin-left: 5px; color: #888;"></i></div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Destination</label><div class="form-input-container">
+                                    <select class="form-control-gf" x-model="filters.pod">
+                                        <option value="">Select...</option>
+                                        @foreach($ports as $port)
+                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Status</label><div class="form-input-container">
+                                    <select class="form-control-gf" x-model="filters.status">
+                                        <option value="">Select...</option>
+                                        <option value="Won">Won</option>
+                                        <option value="Draft">Draft</option>
+                                        <option value="Expired">Expired</option>
+                                    </select>
+                                </div></div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Commodity</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.commodity"></div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Sales</label><div class="form-input-container">
+                                    <select class="form-control-gf" x-model="filters.sales">
+                                        <option value="">Select...</option>
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">OP</label><div class="form-input-container">
+                                    <select class="form-control-gf" x-model="filters.op">
+                                        <option value="">Select...</option>
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div></div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: center; gap: 10px; margin: 15px 0 10px 0;">
+                            <button type="button" class="btn-default-gf" @click="clearSearch()" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; font-weight: normal; color: #333;">Clear</button>
+                            <button type="button" class="btn-tool" @click="applySearch()" style="padding: 6px 15px; font-size: 13px; background: #4b77be; border: none; font-weight: normal; color: #fff;">Search</button>
+                        </div>
+                        
+                        <hr style="border-top: 1px solid #eee; margin: 15px 0;">
+                        
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                            <button type="button" class="btn-tool-secondary" style="border-radius: 12px; padding: 4px 10px; font-size: 11px;"><i class="fa fa-cogs"></i> Config</button>
+                        </div>
+                        
+                        <div class="hide-scrollbar" style="width: 100%; overflow-x: auto; border: 1px solid #ccc; margin-bottom: 15px;">
+                            <table class="table-custom" style="border: none; margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Select</th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Quote No.</th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Valid Date <i class="fa fa-sort" style="float: right; opacity: 0.5;"></i></th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Status <i class="fa fa-sort" style="float: right; opacity: 0.5;"></i></th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Creation Date <i class="fa fa-sort" style="float: right; opacity: 0.5;"></i></th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Commodity</th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Departure</th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Destination</th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Carrier</th>
+                                        <th style="background: #888; color: #fff; border-right: 1px solid #999;">Sales</th>
+                                        <th style="background: #888; color: #fff;">OP</th>
+                                    </tr>
+                                </thead>
+                                     @foreach($quotations as $quote)
+                                     <tr x-show="matchFilters({quote_no: '{{ $quote->quote_no }}', customer_id: '{{ $quote->customer_id }}', pol_id: '{{ $quote->pol_id }}', pod_id: '{{ $quote->pod_id }}', status: '{{ $quote->status }}', sales_person_id: '{{ $quote->sales_person_id }}'})">
+                                         <td style="text-align: center;"><input type="radio" name="quote_sel" :checked="selectedQuote && selectedQuote.quote_no === '{{ $quote->quote_no }}'" 
+                                             @click='selectQuote({
+                                                 quote_no: "{{ $quote->quote_no }}", 
+                                                 mawb_no: "MAWB-{{ $quote->quote_no }}", 
+                                                 hawb_no: "HAWB-{{ $quote->quote_no }}", 
+                                                 eta: "{{ $quote->expiry_date ? $quote->expiry_date->format('Y-m-d') : '' }}", 
+                                                 etd: "{{ $quote->quote_date ? $quote->quote_date->format('Y-m-d') : '' }}", 
+                                                 customer: "{{ addslashes($quote->customer->name ?? '') }}", 
+                                                 customer_id: "{{ $quote->customer_id }}",
+                                                 sales: "{{ addslashes($quote->salesPerson->name ?? '') }}", 
+                                                 sales_person_id: "{{ $quote->sales_person_id }}",
+                                                 pol_name: "{{ addslashes($quote->pol->name ?? '') }}", 
+                                                 pod_name: "{{ addslashes($quote->pod->name ?? '') }}", 
+                                                 pol_id: "{{ $quote->pol_id }}",
+                                                 pod_id: "{{ $quote->pod_id }}",
+                                                 carrier_name: "", 
+                                                 oversea_agent: "{{ addslashes($quote->customer->name ?? '') }}", 
+                                                 service_term: "CY/CY", 
+                                                 op: "", 
+                                                 incoterms: "FOB", 
+                                                 detail: "Quotation loaded successfully", 
+                                                 ship_mode: "LCL",
+                                                 items: JSON.parse(decodeURIComponent("{{ rawurlencode($quote->items->toJson()) }}"))
+                                             })'></td>
+                                         <td><a href="#" style="color: #337ab7; text-decoration: none;">{{ $quote->quote_no }}</a></td>
+                                         <td>{{ $quote->quote_date ? $quote->quote_date->format('m-d-Y') : '' }} ~ {{ $quote->expiry_date ? $quote->expiry_date->format('m-d-Y') : '' }}</td>
+                                         <td><span style="background: {{ $quote->status === 'ACCEPTED' ? '#26c281' : '#f3565d' }}; color: #fff; padding: 2px 5px; border-radius: 2px; font-size: 10px;">{{ $quote->status }}</span></td>
+                                         <td>{{ $quote->created_at->format('Y-m-d') }}</td>
+                                         <td>-</td>
+                                         <td>{{ $quote->pol->name ?? '' }}</td>
+                                         <td>{{ $quote->pod->name ?? '' }}</td>
+                                         <td>-</td>
+                                         <td>{{ $quote->salesPerson->name ?? '' }}</td>
+                                         <td>-</td>
+                                     </tr>
+                                     @endforeach
+                                 </tbody>
+                             </table>
+                         </div>
+                     </div>
+ 
+                     <div x-show="quoteStep === 2">
+                         <h5 style="font-weight: 600; color: #444; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Route Information</h5>
+                         <table class="table-custom" style="border: 1px solid #ccc; margin-bottom: 15px;">
+                             <thead>
+                                 <tr>
+                                     <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1; width: 60px;">Select</th>
+                                     <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Departure</th>
+                                     <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Destination</th>
+                                     <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Final Destination</th>
+                                     <th style="background: #f1f3f6; color: #5b6e84;">Carrier</th>
+                                 </tr>
+                             </thead>
+                             <tbody>
+                                 <tr style="background-color: #fbfcfd;">
+                                     <td style="text-align: center;"><input type="radio" checked style="margin: 0; width: 13px; height: 13px;"></td>
+                                     <td x-text="selectedQuote ? selectedQuote.pol_name : ''"></td>
+                                     <td x-text="selectedQuote ? selectedQuote.pod_name : ''"></td>
+                                     <td x-text="selectedQuote ? selectedQuote.pod_name : ''"></td>
+                                     <td x-text="selectedQuote ? selectedQuote.carrier_name : ''"></td>
+                                 </tr>
+                             </tbody>
+                         </table>
+
+                        <h5 style="font-weight: 600; color: #444; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Fill in the Shipment Information</h5>
+                        <table class="table-custom" style="border: 1px solid #ccc; width: 100%;">
+                            <tbody>
+                                <tr>
+                                    <td style="width: 15%; background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;"><span style="color:red;">*</span>MAWB No.</label></td>
+                                    <td style="width: 35%;"><input type="text" class="form-control-gf" x-model="quoteForm.mawb_no"></td>
+                                    <td style="width: 15%; background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;"><span style="color:red;">*</span>HAWB No.</label></td>
+                                    <td style="width: 35%;"><input type="text" class="form-control-gf" x-model="quoteForm.hawb_no"></td>
+                                </tr>
+                                <tr>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Departure Date/Time</label></td>
+                                    <td><div style="display: flex;"><input type="date" class="form-control-gf" x-model="quoteForm.etd"> <div style="background: #eee; border: 1px solid #ccc; border-left: none; padding: 0 5px; display: flex; align-items: center;"><i class="fa fa-calendar" style="color: #666;"></i></div></div></td>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;"><span style="color:red;">*</span>Arrival Date/Time</label></td>
+                                    <td><div style="display: flex;"><input type="date" class="form-control-gf" x-model="quoteForm.eta"> <div style="background: #eee; border: 1px solid #ccc; border-left: none; padding: 0 5px; display: flex; align-items: center;"><i class="fa fa-calendar" style="color: #666;"></i></div></div></td>
+                                </tr>
+                                <tr>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;"><span style="color:red;">*</span>Customer</label></td>
+                                    <td>
+                                        <div style="display: flex;">
+                                            <input type="text" class="form-control-gf" x-model="quoteForm.customer" readonly style="background-color: #fff;">
+                                            <div style="display: flex; background: #fff; border: 1px solid #ccc; border-left: none;">
+                                                <button type="button" class="btn-default-gf" style="border: none; border-left: 1px solid #eee; padding: 0 4px; border-radius: 0; background: #fff;"><i class="fa fa-external-link" style="color: #337ab7; font-size: 10px;"></i></button>
+                                                <button type="button" class="btn-default-gf" style="border: none; border-left: 1px solid #eee; padding: 0 4px; border-radius: 0; background: #fff;"><i class="fa fa-angle-down" style="color: #999;"></i></button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Service Term</label></td>
+                                    <td x-text="quoteForm.service_term"></td>
+                                </tr>
+                            </tbody>
+                            <tbody style="border-top: 0;">
+                                <tr>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Oversea Agent</label></td>
+                                    <td x-text="quoteForm.oversea_agent"></td>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Incoterms</label></td>
+                                    <td x-text="quoteForm.incoterms"></td>
+                                </tr>
+                                <tr>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Gross Weight</label></td>
+                                    <td></td>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Volume Weight</label></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Chargeable Weight</label></td>
+                                    <td></td>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">Sales</label></td>
+                                    <td x-text="quoteForm.sales"></td>
+                                </tr>
+                                <tr>
+                                    <td style="background: #f9f9f9;"><label class="form-label-gf" style="text-align: left; width: 100%; margin: 0;">OP</label></td>
+                                    <td colspan="3" x-text="quoteForm.op"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div x-show="quoteStep === 3">
+                        <h5 style="font-weight: 600; color: #444; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Select Freight Item(s)</h5>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="saveAsDraft" style="margin: 0; width: 13px; height: 13px;">
+                                <label for="saveAsDraft" style="font-size: 11px; margin: 0; cursor: pointer;">Save as a draft invoice</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <label style="font-size: 11px; margin: 0;">Applied Unit</label>
+                                <i class="fa fa-info-circle text-gray-400"></i>
+                                <select class="form-control-gf" style="width: 120px; height: 22px;">
+                                    <option>Min</option>
+                                    <option>-45K</option>
+                                    <option>+45K</option>
+                                    <option>+100K</option>
+                                    <option>+300K</option>
+                                    <option>+500K</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="hide-scrollbar" style="width: 100%; overflow-x: auto; border: 1px solid #ccc; margin-bottom: 15px;">
+                            <table class="table-custom" style="border: none; margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1; width: 60px; text-align: center;"><input type="checkbox" disabled> Select</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Freight Code</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Freight Description</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Unit</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Currency</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Volume</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84; border-right: 1px solid #e7ecf1;">Rate</th>
+                                        <th style="background: #f1f3f6; color: #5b6e84;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-if="selectedQuote && selectedQuote.items && selectedQuote.items.length > 0">
+                                        <template x-for="(item, index) in selectedQuote.items" :key="index">
+                                            <tr style="background-color: #fbfcfd;">
+                                                <td style="text-align: center;"><input type="checkbox" x-model="item.selected" style="margin: 0; width: 13px; height: 13px;"></td>
+                                                <td x-text="item.charge_code"></td>
+                                                <td x-text="item.charge_name"></td>
+                                                <td x-text="item.unit || 'UNIT'"></td>
+                                                <td x-text="item.currency ? item.currency.code : 'USD'"></td>
+                                                <td style="text-align: right;"><input type="text" class="form-control-gf" x-model="item.qty" style="text-align: right; width: 60px;"></td>
+                                                <td style="text-align: right;"><input type="text" class="form-control-gf" x-model="item.rate" style="text-align: right; width: 80px;"></td>
+                                                <td style="text-align: right;" x-text="(parseFloat(item.qty || 0) * parseFloat(item.rate || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></td>
+                                            </tr>
+                                        </template>
+                                    </template>
+                                    <template x-if="!selectedQuote || !selectedQuote.items || selectedQuote.items.length === 0">
+                                        <tr>
+                                            <td colspan="8" style="text-align: center; padding: 20px; color: #999;">No items found for this quotation.</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer" style="padding: 15px 30px; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-default-gf" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; color: #333;" @click="window.location.href = '/air-import/create'">Cancel</button>
+                    <button type="button" x-show="quoteStep > 1" class="btn-default-gf" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; color: #333;" @click="quoteStep--">Back</button>
+                    <button type="button" x-show="quoteStep < 3" class="btn-tool" :disabled="(quoteStep === 1 && !selectedQuote) || (quoteStep === 2 && (!quoteForm.mawb_no || !quoteForm.hawb_no || !quoteForm.customer || !quoteForm.eta))" :style="((quoteStep === 1 && !selectedQuote) || (quoteStep === 2 && (!quoteForm.mawb_no || !quoteForm.hawb_no || !quoteForm.customer || !quoteForm.eta))) ? 'padding: 6px 15px; font-size: 13px; background: #ccc; border: none; color: #666; cursor: not-allowed; opacity: 0.7;' : 'padding: 6px 15px; font-size: 13px; background: #36c6d3; border: none; color: #fff;'" @click="quoteStep++">Next</button>
+                    <button type="button" x-show="quoteStep === 3" class="btn-tool" style="padding: 6px 15px; font-size: 13px; background: #36c6d3; border: none; color: #fff;" @click="confirmQuoteSelection">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</x-layout>

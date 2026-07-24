@@ -1,0 +1,36 @@
+NOTE THAT 
+we gonna uise tailwind html for view files and will use sytax like index.blade.php and everything that is repeating should be in components so we can use again again again must be a consistent website and everyhting must be perfect use only mysql as database and code like humans like no othershits like just simple version of code make ik and everything must be API based only API controller and routes and everything and remember that no any shiotty asses in entire project that shows that it is ai generated or make some error we will not use storage means public/storage to store anything in entiore website 
+
+
+
+Core Operations
+1️⃣ CRM (Customer Management)
+2️⃣ Sales & Lead Management
+3️⃣ Quotation / Rate Management
+4️⃣ Shipment Management (Air / Sea / Land)
+5️⃣ Booking Management
+6️⃣ Container Management
+7️⃣ Vessel / Flight Schedule Management
+Documentation
+8️⃣ Bill of Lading (HBL / MBL) Generator
+9️⃣ Commercial Invoice Generator
+🔟 Packing List Generator
+1️⃣1️⃣ Arrival Notice System
+1️⃣2️⃣ Delivery Order Management
+Compliance & Filing
+1️⃣3️⃣ AMS Filing (USA)
+1️⃣4️⃣ ISF Filing
+1️⃣5️⃣ ICS2 Filing (EU)
+1️⃣6️⃣ ACI Filing (Canada)
+1️⃣7️⃣ AFR Filing (Japan)
+Financial System
+1️⃣8️⃣ Accounts Receivable (AR)
+1️⃣9️⃣ Accounts Payable (AP)
+2️⃣0️⃣ Profit & Loss per Shipment
+2️⃣1️⃣ General Ledger & Accounting
+Logistics & Tracking
+2️⃣2️⃣ Cargo Tracking System
+2️⃣3️⃣ Warehouse Management
+2️⃣4️⃣ Agent / Partner Management
+System Control
+2️⃣5️⃣ Reporting, Analytics & Dashboard
