@@ -86,6 +86,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/ocean-import/containers/{container}/remarks', [OceanImportController::class, 'updateRemarks'])->name('ocean-import.containers.remarks');
     Route::delete('/ocean-import/containers/{container}', [OceanImportController::class, 'destroyContainer'])->name('ocean-import.containers.destroy');
     Route::post('/ocean-import/containers/batch-update', [OceanImportController::class, 'batchUpdateContainers'])->name('ocean-import.containers.batch-update');
+    Route::post('/ocean-import/containers/batch-update-inline', [OceanImportController::class, 'batchUpdateInline'])->name('ocean-import.containers.batch-update-inline');
     Route::get('/ocean-import/{ocean_import}/containers/export', [OceanImportController::class, 'exportContainerList'])->name('ocean-import.containers.export');
     Route::get('/ocean-import/containers-export-csv', [OceanImportController::class, 'exportContainersCsv'])->name('ocean-import.containers-export-csv');
 

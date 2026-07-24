@@ -2,6 +2,81 @@
     @push('styles')
     <x-list-styles />
     <style>
+        /* Editable Cell Styles */
+        .cell-input, .cell-select {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            padding: 4px 6px;
+            font-size: 11px;
+            border-radius: 3px;
+            background: white;
+        }
+
+        .cell-input:focus, .cell-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .cell-input.changed, .cell-select.changed {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+        }
+
+        /* Save Button */
+        .save-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #22c55e;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            animation: slideUp 0.3s ease-out;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .save-bar button {
+            background: white;
+            border: none;
+            color: #22c55e;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .save-bar button:hover {
+            background: #f0f0f0;
+        }
+
+        .save-bar .cancel-btn {
+            background: transparent;
+            color: white;
+            border: 1px solid white;
+        }
+
+        .save-bar .cancel-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
         /* Button Group Styling */
         .btn-group {
             display: inline-flex;
@@ -265,9 +340,26 @@
             </div>
 
             {{-- BULK-ACTION FORM + TABLE --}}
-            <form id="bulk-form" method="POST" action="{{ route('ocean-import.bulk-delete') }}" style="margin:0;">
+            <form id="bulk-form" method="POST" action="{{ route('ocean-import.bulk-delete') }}" style="margin:0;" x-data="containerGrid()">
                 @csrf
                 @method('DELETE')
+                
+                {{-- SAVE BAR (Shown when changes detected) --}}
+                <div x-show="hasChanges" class="save-bar" x-transition>
+                    <span style="font-weight:600;">
+                        <i class="fa fa-exclamation-circle"></i>
+                        You have unsaved changes
+                    </span>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" @click="cancelChanges()" class="cancel-btn">
+                            <i class="fa fa-times"></i> Cancel
+                        </button>
+                        <button type="button" @click="saveChanges()">
+                            <i class="fa fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+                
             <div class="portlet-body">
                 <div class="grid-container">
                     <div class="grid-wrapper">
@@ -415,7 +507,75 @@
     {{-- Hidden iframe for Excel download --}}
     <iframe id="excel-frame" style="display:none;"></iframe>
 
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script>
+// Alpine.js Component for Inline Editing
+document.addEventListener('alpine:init', () => {
+    Alpine.data('containerGrid', () => ({
+        changedRows: {},
+        hasChanges: false,
+        
+        markChanged(containerId, field, value) {
+            if (!this.changedRows[containerId]) {
+                this.changedRows[containerId] = {};
+            }
+            this.changedRows[containerId][field] = value;
+            this.hasChanges = Object.keys(this.changedRows).length > 0;
+            
+            // Add visual indicator
+            event.target.classList.add('changed');
+        },
+        
+        async saveChanges() {
+            const saveBtn = document.querySelector('.save-bar button');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+            saveBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/ocean-import/containers/batch-update-inline', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({
+                        containers: this.changedRows
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Remove changed styling
+                    document.querySelectorAll('.cell-input.changed, .cell-select.changed').forEach(el => {
+                        el.classList.remove('changed');
+                    });
+                    
+                    this.changedRows = {};
+                    this.hasChanges = false;
+                    showToast('success', data.message || 'Changes saved successfully!');
+                } else {
+                    showToast('error', data.message || 'Failed to save changes');
+                }
+            } catch (error) {
+                console.error('Save error:', error);
+                showToast('error', 'Error saving changes');
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        },
+        
+        cancelChanges() {
+            if (confirm('Discard all unsaved changes?')) {
+                // Reload page to reset
+                window.location.reload();
+            }
+        }
+    }));
+});
+
 var COLOR_OPTIONS = [
     { label: 'Urgent', value: '#E08283' },
     { label: 'Ready to bill', value: '#F3C200' },

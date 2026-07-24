@@ -38,86 +38,226 @@
     <td>{{ $c->updated_at ? $c->updated_at->format('m-d-Y H:i') : '--' }}</td>
     
     <!-- Container Fields -->
-    <td>{{ $c->pp_ctf ?? '--' }}</td>
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->pp_ctf ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'pp_ctf', $event.target.value)"
+               placeholder="-">
+    </td>
     <td>{{ $c->containerType->code ?? '--' }}</td>
-    <td>{{ $c->seal_no ?? '--' }}</td>
-    <td>{{ $c->seal_no2 ?? '--' }}</td>
-    <td>{{ $c->lfd ? $c->lfd->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->fdd ? $c->fdd->format('m-d-Y') : '--' }}</td>
-    <td style="text-align:right;">{{ $c->pkg_qty ?? '--' }}</td>
-    <td style="text-align:right;">{{ $c->weight_kg ? number_format($c->weight_kg, 2) : '--' }}</td>
-    <td style="text-align:right;">{{ $c->weight_lb ? number_format($c->weight_lb, 2) : '--' }}</td>
-    <td style="text-align:right;">{{ $c->measure_cbm ? number_format($c->measure_cbm, 2) : '--' }}</td>
-    <td style="text-align:right;">{{ $c->measure_cft ? number_format($c->measure_cft, 2) : '--' }}</td>
-    <td style="text-align:center;">
-        @if($c->is_dg)
-            <i class="fa fa-check" style="color:#22c55e;"></i>
-        @else
-            <i class="fa fa-times" style="color:#ef4444;"></i>
-        @endif
-    </td>
-    <td>{{ $c->unload_vessel_date ? $c->unload_vessel_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->gate_in_date ? $c->gate_in_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->rail_start_date ? $c->rail_start_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->pod_eta ? $c->pod_eta->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->appointment_date ? $c->appointment_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->pickup_date ? $c->pickup_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->gate_out_date ? $c->gate_out_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->fdest_eta ? $c->fdest_eta->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->eta_door ? $c->eta_door->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->ata_door ? $c->ata_door->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->empty_conf_date ? $c->empty_conf_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->empty_ret_date ? $c->empty_ret_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->storage_start_date ? $c->storage_start_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->storage_end_date ? $c->storage_end_date->format('m-d-Y') : '--' }}</td>
-    <td>{{ $c->pickup_no ?? '--' }}</td>
-    <td>{{ $c->cprs_no ?? '--' }}</td>
-    <td>{{ $c->cnru_no ?? '--' }}</td>
-    <td style="text-align:center;">
-        @if($c->is_carrier_release)
-            <i class="fa fa-check" style="color:#22c55e;"></i>
-        @else
-            <i class="fa fa-times" style="color:#ef4444;"></i>
-        @endif
-    </td>
-    <td>{{ $c->yard_location ?? '--' }}</td>
-    <td style="text-align:center;">
-        @if($c->is_avail_pickup)
-            <i class="fa fa-check" style="color:#22c55e;"></i>
-        @else
-            <i class="fa fa-times" style="color:#ef4444;"></i>
-        @endif
-    </td>
-    <td>{{ $c->trucker->name ?? '--' }}</td>
-    <td style="text-align:right;">{{ $c->chassis_days ?? '--' }}</td>
-    <td style="text-align:center;">
-        @if($c->is_customs_hold)
-            <i class="fa fa-lock" style="color:#ef4444;"></i>
-        @else
-            <i class="fa fa-unlock" style="color:#22c55e;"></i>
-        @endif
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->seal_no ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'seal_no', $event.target.value)"
+               placeholder="-">
     </td>
     <td>
-        @if($c->is_an_sent)
-            <i class="fa fa-check" style="color:#22c55e;"></i> {{ $c->an_sent_date ? $c->an_sent_date->format('m-d-Y') : '' }}
-        @else
-            --
-        @endif
+        <input type="text" class="cell-input" 
+               value="{{ $c->seal_no2 ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'seal_no2', $event.target.value)"
+               placeholder="-">
     </td>
     <td>
-        @if($c->is_do_sent)
-            <i class="fa fa-check" style="color:#22c55e;"></i> {{ $c->do_sent_date ? $c->do_sent_date->format('m-d-Y') : '' }}
-        @else
-            --
-        @endif
+        <input type="date" class="cell-input" 
+               value="{{ $c->lfd ? $c->lfd->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'lfd', $event.target.value)">
     </td>
-    <td>{{ $c->container_remarks ?? '--' }}</td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->fdd ? $c->fdd->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'fdd', $event.target.value)">
+    </td>
+    <td>
+        <input type="number" class="cell-input" step="0.01" style="text-align:right;"
+               value="{{ $c->pkg_qty ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'pkg_qty', $event.target.value)"
+               placeholder="0">
+    </td>
+    <td>
+        <input type="number" class="cell-input" step="0.01" style="text-align:right;"
+               value="{{ $c->weight_kg ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'weight_kg', $event.target.value)"
+               placeholder="0.00">
+    </td>
+    <td>
+        <input type="number" class="cell-input" step="0.01" style="text-align:right;"
+               value="{{ $c->weight_lb ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'weight_lb', $event.target.value)"
+               placeholder="0.00">
+    </td>
+    <td>
+        <input type="number" class="cell-input" step="0.01" style="text-align:right;"
+               value="{{ $c->measure_cbm ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'measure_cbm', $event.target.value)"
+               placeholder="0.00">
+    </td>
+    <td>
+        <input type="number" class="cell-input" step="0.01" style="text-align:right;"
+               value="{{ $c->measure_cft ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'measure_cft', $event.target.value)"
+               placeholder="0.00">
+    </td>
     <td style="text-align:center;">
-        @if($c->is_complete)
-            <i class="fa fa-check-circle" style="color:#22c55e;"></i>
-        @else
-            <i class="fa fa-circle-o" style="color:#cbd5e1;"></i>
-        @endif
+        <input type="checkbox" class="cell-input" style="width:auto;"
+               {{ $c->is_dg ? 'checked' : '' }}
+               @change="markChanged({{ $c->id }}, 'is_dg', $event.target.checked ? 1 : 0)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->unload_vessel_date ? $c->unload_vessel_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'unload_vessel_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->gate_in_date ? $c->gate_in_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'gate_in_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->rail_start_date ? $c->rail_start_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'rail_start_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->pod_eta ? $c->pod_eta->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'pod_eta', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->appointment_date ? $c->appointment_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'appointment_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->pickup_date ? $c->pickup_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'pickup_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->gate_out_date ? $c->gate_out_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'gate_out_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->fdest_eta ? $c->fdest_eta->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'fdest_eta', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->eta_door ? $c->eta_door->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'eta_door', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->ata_door ? $c->ata_door->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'ata_door', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->empty_conf_date ? $c->empty_conf_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'empty_conf_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->empty_ret_date ? $c->empty_ret_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'empty_ret_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->storage_start_date ? $c->storage_start_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'storage_start_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="date" class="cell-input" 
+               value="{{ $c->storage_end_date ? $c->storage_end_date->format('Y-m-d') : '' }}" 
+               @input="markChanged({{ $c->id }}, 'storage_end_date', $event.target.value)">
+    </td>
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->pickup_no ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'pickup_no', $event.target.value)"
+               placeholder="-">
+    </td>
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->cprs_no ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'cprs_no', $event.target.value)"
+               placeholder="-">
+    </td>
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->cnru_no ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'cnru_no', $event.target.value)"
+               placeholder="-">
+    </td>
+    <td style="text-align:center;">
+        <input type="checkbox" class="cell-input" style="width:auto;"
+               {{ $c->is_carrier_release ? 'checked' : '' }}
+               @change="markChanged({{ $c->id }}, 'is_carrier_release', $event.target.checked ? 1 : 0)">
+    </td>
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->yard_location ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'yard_location', $event.target.value)"
+               placeholder="-">
+    </td>
+    <td style="text-align:center;">
+        <input type="checkbox" class="cell-input" style="width:auto;"
+               {{ $c->is_avail_pickup ? 'checked' : '' }}
+               @change="markChanged({{ $c->id }}, 'is_avail_pickup', $event.target.checked ? 1 : 0)">
+    </td>
+    <td>
+        <select class="cell-select" 
+                @change="markChanged({{ $c->id }}, 'trucker_id', $event.target.value)">
+            <option value="">-- Select --</option>
+            @foreach($truckers ?? [] as $trucker)
+                <option value="{{ $trucker->id }}" {{ $c->trucker_id == $trucker->id ? 'selected' : '' }}>
+                    {{ $trucker->name }}
+                </option>
+            @endforeach
+        </select>
+    </td>
+    <td>
+        <input type="number" class="cell-input" step="1" style="text-align:right;"
+               value="{{ $c->chassis_days ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'chassis_days', $event.target.value)"
+               placeholder="0">
+    </td>
+    <td style="text-align:center;">
+        <input type="checkbox" class="cell-input" style="width:auto;"
+               {{ $c->is_customs_hold ? 'checked' : '' }}
+               @change="markChanged({{ $c->id }}, 'is_customs_hold', $event.target.checked ? 1 : 0)">
+    </td>
+    <td>
+        <div style="display:flex;gap:4px;align-items:center;">
+            <input type="checkbox" class="cell-input" style="width:auto;"
+                   {{ $c->is_an_sent ? 'checked' : '' }}
+                   @change="markChanged({{ $c->id }}, 'is_an_sent', $event.target.checked ? 1 : 0)">
+            <input type="date" class="cell-input" style="flex:1;"
+                   value="{{ $c->an_sent_date ? $c->an_sent_date->format('Y-m-d') : '' }}" 
+                   @input="markChanged({{ $c->id }}, 'an_sent_date', $event.target.value)">
+        </div>
+    </td>
+    <td>
+        <div style="display:flex;gap:4px;align-items:center;">
+            <input type="checkbox" class="cell-input" style="width:auto;"
+                   {{ $c->is_do_sent ? 'checked' : '' }}
+                   @change="markChanged({{ $c->id }}, 'is_do_sent', $event.target.checked ? 1 : 0)">
+            <input type="date" class="cell-input" style="flex:1;"
+                   value="{{ $c->do_sent_date ? $c->do_sent_date->format('Y-m-d') : '' }}" 
+                   @input="markChanged({{ $c->id }}, 'do_sent_date', $event.target.value)">
+        </div>
+    </td>
+    <td>
+        <input type="text" class="cell-input" 
+               value="{{ $c->container_remarks ?? '' }}" 
+               @input="markChanged({{ $c->id }}, 'container_remarks', $event.target.value)"
+               placeholder="-">
+    </td>
+    <td style="text-align:center;">
+        <input type="checkbox" class="cell-input" style="width:auto;"
+               {{ $c->is_complete ? 'checked' : '' }}
+               @change="markChanged({{ $c->id }}, 'is_complete', $event.target.checked ? 1 : 0)">
     </td>
     
     <!-- Shipment Fields -->

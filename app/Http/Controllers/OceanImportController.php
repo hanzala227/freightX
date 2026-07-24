@@ -162,21 +162,44 @@ class OceanImportController extends Controller
             }
 
             $oceanImport = $source->replicate();
-            $oceanImport->file_no = 'MOI-' . now()->format('ymdHis');
+            // Generate unique file_no with timestamp + random string to prevent duplicates
+            $oceanImport->file_no = 'MOI-' . now()->format('ymdHis') . '-' . strtoupper(substr(uniqid(), -6));
             $oceanImport->mbl_no = null;
             $oceanImport->save();
 
             foreach ($source->containers as $container) {
                 $clonedContainer = $container->replicate();
                 $clonedContainer->ocean_import_id = $oceanImport->id;
-                $clonedContainer->container_no = $container->container_no . ' - Copy';
+                
+                // Generate unique container number
+                $baseContainerNo = $container->container_no;
+                $uniqueSuffix = '-Copy-' . now()->format('YmdHis');
+                $clonedContainer->container_no = $baseContainerNo . $uniqueSuffix;
+                
+                // If too long, truncate
+                if (strlen($clonedContainer->container_no) > 255) {
+                    $maxBaseLength = 255 - strlen($uniqueSuffix);
+                    $clonedContainer->container_no = substr($baseContainerNo, 0, $maxBaseLength) . $uniqueSuffix;
+                }
+                
                 $clonedContainer->save();
             }
 
             foreach ($source->hbls as $hbl) {
                 $clonedHbl = $hbl->replicate();
                 $clonedHbl->ocean_import_id = $oceanImport->id;
-                $clonedHbl->hbl_no = $hbl->hbl_no . ' - Copy';
+                
+                // Generate unique HBL number by adding timestamp
+                $baseHblNo = $hbl->hbl_no;
+                $uniqueSuffix = ' - Copy ' . now()->format('YmdHis');
+                $clonedHbl->hbl_no = $baseHblNo . $uniqueSuffix;
+                
+                // If still too long, truncate the base and add suffix
+                if (strlen($clonedHbl->hbl_no) > 255) {
+                    $maxBaseLength = 255 - strlen($uniqueSuffix);
+                    $clonedHbl->hbl_no = substr($baseHblNo, 0, $maxBaseLength) . $uniqueSuffix;
+                }
+                
                 $clonedHbl->save();
 
                 foreach ($hbl->containers as $container) {
@@ -559,11 +582,12 @@ class OceanImportController extends Controller
 
         $containers = $query->latest()->paginate(20)->withQueryString();
         $users = User::all();
+        $truckers = TradePartner::orderBy('name')->get();
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             try {
-                $html = view('ocean-import.partials.container-list-rows', compact('containers'))->render();
+                $html = view('ocean-import.partials.container-list-rows', compact('containers', 'truckers'))->render();
                 $pagination = view('vendor.pagination.custom', ['paginator' => $containers])->render();
                 
                 return response()->json([
@@ -583,7 +607,7 @@ class OceanImportController extends Controller
             }
         }
 
-        return view('ocean-import.containers', compact('containers', 'users', 'startDate', 'endDate'));
+        return view('ocean-import.containers', compact('containers', 'users', 'truckers', 'startDate', 'endDate'));
     }
 
     public function updateRemarks(Request $request, OceanImportContainer $container)
@@ -717,6 +741,32 @@ class OceanImportController extends Controller
 
             OceanImportContainer::where('id', $id)->update($item);
             $updated++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$updated} container(s) updated successfully."
+        ]);
+    }
+
+    public function batchUpdateInline(Request $request)
+    {
+        $containers = $request->input('containers', []);
+        $updated = 0;
+
+        foreach ($containers as $containerId => $fields) {
+            $container = OceanImportContainer::find($containerId);
+            if ($container) {
+                // Sanitize empty strings to null for dates
+                foreach ($fields as $key => $value) {
+                    if ($value === '' || $value === 'null') {
+                        $fields[$key] = null;
+                    }
+                }
+                
+                $container->update($fields);
+                $updated++;
+            }
         }
 
         return response()->json([

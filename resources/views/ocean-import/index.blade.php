@@ -34,7 +34,7 @@
                 saved: @json(isset($oceanImport) ? true : false),
                 isSaving: false,
                 saveError: '',
-                activeTab: sessionStorage.getItem('oceanImportActiveTab') || 'basic',
+                activeTab: 'basic', // Always start on Main tab
                 activeChargeFilter: 'All',
                 showMblSection: true,
                 showMblMemo: false,
@@ -359,7 +359,7 @@
                         if (c.empty_conf_date) c.empty_conf_date = c.empty_conf_date.substring(0, 10);
                         if (c.empty_ret_date) c.empty_ret_date = c.empty_ret_date.substring(0, 10);
                     });
-                    this.$watch('activeTab', val => sessionStorage.setItem('oceanImportActiveTab', val));
+                    // Removed sessionStorage persistence - always start on Main tab
                     this.$watch('inputTotalMode', val => {
                         if (val && this.form.containers.length > 0) {
                             let pkg = prompt('Enter total package quantity:', this.calculateTotal('pkg_qty'));
@@ -440,17 +440,43 @@
                 },
                 validateForm() {
                     let errors = [];
+                    
+                    // Only 3 required fields: MB/L No., Office, ETA
                     if (!this.form.mbl_no || !this.form.mbl_no.trim()) {
-                        errors.push('MB/L No. is required.');
+                        errors.push('MB/L No. is required');
                     }
+                    
                     if (!this.form.office_id) {
-                        errors.push('Office is required.');
+                        errors.push('Office is required');
                     }
-                    for (let i = 0; i < this.hbls.length; i++) {
-                        if (!this.hbls[i].hbl_no || !this.hbls[i].hbl_no.trim()) {
-                            errors.push('HB/L No. is required for House B/L #' + (i + 1) + '.');
+                    
+                    if (!this.form.eta) {
+                        errors.push('ETA is required');
+                    }
+                    
+                    // Sanitize container numeric fields to prevent null values
+                    this.form.containers.forEach((container, idx) => {
+                        // Ensure numeric fields have valid numbers, not null
+                        if (container.pkg_qty === null || container.pkg_qty === '' || container.pkg_qty === undefined) {
+                            container.pkg_qty = 0;
                         }
-                    }
+                        if (container.weight_kg === null || container.weight_kg === '' || container.weight_kg === undefined) {
+                            container.weight_kg = 0;
+                        }
+                        if (container.weight_lb === null || container.weight_lb === '' || container.weight_lb === undefined) {
+                            container.weight_lb = 0;
+                        }
+                        if (container.measure_cbm === null || container.measure_cbm === '' || container.measure_cbm === undefined) {
+                            container.measure_cbm = 0;
+                        }
+                        if (container.measure_cft === null || container.measure_cft === '' || container.measure_cft === undefined) {
+                            container.measure_cft = 0;
+                        }
+                        if (container.chassis_days === null || container.chassis_days === '' || container.chassis_days === undefined) {
+                            container.chassis_days = 0;
+                        }
+                    });
+                    
                     if (errors.length > 0) {
                         showToast('error', 'Please fix: ' + errors.join(', '));
                         return false;
@@ -484,11 +510,11 @@
                             ata_door: null,
                             empty_conf_date: null,
                             empty_ret_date: null,
-                            pkg_qty: null,
-                            weight_kg: null,
-                            weight_lb: null,
-                            measure_cbm: null,
-                            measure_cft: null,
+                            pkg_qty: 0,
+                            weight_kg: 0,
+                            weight_lb: 0,
+                            measure_cbm: 0,
+                            measure_cft: 0,
                             pickup_no: '',
                             cprs_no: '',
                             cnru_no: '',
@@ -498,7 +524,7 @@
                             yard_location: '',
                             is_avail_pickup: 0,
                             trucker_id: '',
-                            chassis_days: null,
+                            chassis_days: 0,
                             is_customs_hold: 0,
                             is_an_sent: 0,
                             an_sent_date: null,
@@ -1631,7 +1657,7 @@
                                 <!-- Column 1: Basic -->
                                 <div class="flex flex-col">
                                     <input type="hidden" :name="'hbls['+index+'][id]'" :value="hbl.id">
-                                    <div class="form-group-gf"><label class="form-label-gf" style="color:red;">*HB/L No.</label><div class="form-input-container"><input type="text" :name="'hbls['+index+'][hbl_no]'" class="form-control-gf" x-model="hbl.hbl_no" required></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">HB/L No.</label><div class="form-input-container"><input type="text" :name="'hbls['+index+'][hbl_no]'" class="form-control-gf" x-model="hbl.hbl_no"></div></div>
                                     <div class="form-group-gf"><label class="form-label-gf">Quotation No.</label><div class="form-input-container"><select :name="'hbls['+index+'][quotation_no]'" class="form-control-gf" x-model="hbl.quotation_no"><option value="">Select...</option>@foreach($quotations as $q)<option value="{{ $q->quote_no }}">{{ $q->quote_no }}</option>@endforeach</select></div></div>
                                     <div class="form-group-gf"><label class="form-label-gf">Customer</label><div class="form-input-container"><x-inline-select name="" x-bind:name="'hbls['+index+'][customer_id]'" :options="$agents" module="trade-partner" type="customer" x-model="hbl.customer_id" class="form-control-gf" /><button type="button" class="btn-default-gf" style="height:18px; padding:0 4px;" @click="openAddNewModal('trade-partner', 'hbls['+index+'][customer_id]')"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
                                     <div class="form-group-gf"><label class="form-label-gf">Sales</label><div class="form-input-container"><select :name="'hbls['+index+'][sales_person_id]'" class="form-control-gf" x-model="hbl.sales_person_id"><option value="">Select...</option>@foreach($users as $user)<option value="{{ $user->id }}">{{ $user->name }}</option>@endforeach</select></div></div>
