@@ -1,6 +1,30 @@
 <x-layout>
     @push('styles')
     <x-list-styles />
+    <style>
+        .btn-group{display:inline-flex;gap:0;border-radius:4px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.1);}
+        .btn-group .btn-tool{border-radius:0;margin:0;}
+        .btn-group .btn-tool:first-child{border-top-left-radius:4px;border-bottom-left-radius:4px;}
+        .btn-group .btn-tool:last-child{border-top-right-radius:4px;border-bottom-right-radius:4px;}
+        .portlet-tool{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
+        @media(max-width:768px){
+            .page-content{padding:2px!important;overflow-x:hidden!important;}
+            .portlet.light{margin:0!important;border-radius:0!important;}
+            .portlet-title{flex-direction:column!important;align-items:flex-start!important;padding:6px!important;gap:6px;}
+            .portlet-title .actions{width:100%;flex-wrap:wrap;gap:3px!important;}
+            .portlet-tool{flex-direction:column!important;align-items:flex-start!important;padding:6px!important;gap:6px!important;}
+            .portlet-tool>div{width:100%;}
+            .btn-group{width:100%;flex-wrap:wrap;}
+            .btn-tool{font-size:8px!important;padding:0 6px!important;height:20px!important;}
+            .input-inline,.select-tool{width:100%!important;font-size:9px!important;}
+            .portlet-body{padding:0!important;overflow:hidden!important;}
+            .grid-wrapper{width:100%!important;height:calc(100vh - 350px)!important;min-height:200px!important;overflow-x:auto!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;}
+            .grid-table{font-size:8px!important;width:auto!important;min-width:1600px!important;table-layout:auto!important;}
+            .grid-table th,.grid-table td{padding:2px 4px!important;height:22px!important;white-space:nowrap!important;}
+            .filter-input{height:18px!important;font-size:8px!important;padding:0 3px!important;}
+        }
+        @media(max-width:480px){.grid-table{font-size:7px!important;min-width:1400px!important;}}
+    </style>
     @endpush
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -140,9 +164,10 @@
                                     <th class="sticky-col sticky-col-header" data-col="check"  style="width:25px;text-align:center;left:0;">
                                         <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" title="Select All">
                                     </th>
-                                    <th class="sticky-col sticky-col-header" data-col="color"    style="width:28px;text-align:center;left:25px;">CR</th>
-                                    <th class="sticky-col sticky-col-header" data-col="file_no"  style="width:120px;left:53px;">File No.</th>
-                                    <th class="sticky-col sticky-col-header" data-col="hawb_no"  style="width:120px;left:173px;">HAWB No.</th>
+                                    <th class="sticky-col sticky-col-header" data-col="lock" style="width:28px;text-align:center;left:25px;"><i class="fa fa-lock"></i></th>
+                                    <th class="sticky-col sticky-col-header" data-col="color"    style="width:28px;text-align:center;left:53px;">Color</th>
+                                    <th class="sticky-col sticky-col-header" data-col="file_no"  style="width:120px;left:81px;">File No.</th>
+                                    <th class="sticky-col sticky-col-header" data-col="hawb_no"  style="width:120px;left:201px;">HAWB No.</th>
                                     <th data-col="mawb_no"    style="width:130px;">MAWB No.</th>
                                     <th data-col="customer"   style="width:150px;">Customer</th>
                                     <th data-col="shipper"    style="width:150px;">Shipper</th>
@@ -160,11 +185,12 @@
                                 </tr>
 
                                 {{-- FILTER ROW --}}
-                                <tr id="filter-row" style="display:none;">
+                                <tr id="filter-row" style="display:none;background:#eff6ff;">
                                     <td class="sticky-col" style="left:0;"></td>
                                     <td class="sticky-col" style="left:25px;"></td>
-                                    <td class="sticky-col" style="left:53px;"><input class="filter-input" data-col-idx="2" placeholder="File…" oninput="applyFilters()"></td>
-                                    <td class="sticky-col" style="left:173px;"><input class="filter-input" data-col-idx="3" placeholder="HAWB…" oninput="applyFilters()"></td>
+                                    <td class="sticky-col" style="left:53px;"></td>
+                                    <td class="sticky-col" style="left:81px;"><input class="filter-input" style="width:100%;" data-param="filter_file_no" placeholder="File…" oninput="applyFiltersTyping()"></td>
+                                    <td class="sticky-col" style="left:201px;"><input class="filter-input" style="width:100%;" data-param="filter_hawb" placeholder="HAWB…" oninput="applyFiltersTyping()"></td>
                                     <td colspan="2"></td>
                                     <td><input class="filter-input" data-col-idx="6" placeholder="Shipper…" oninput="applyFilters()"></td>
                                     <td><input class="filter-input" data-col-idx="7" placeholder="Consignee…" oninput="applyFilters()"></td>
@@ -173,52 +199,7 @@
                             </thead>
 
                             <tbody id="grid-body">
-                            @forelse($hbls as $hbl)
-                                @php
-                                    $isBlocked = $hbl->is_blocked ?? false;
-                                @endphp
-                                <tr id="hbl-row-{{ $hbl->id }}"
-                                    data-id="{{ $hbl->id }}"
-                                    data-hawb="{{ $hbl->hawb_no }}"
-                                    onclick="rowClick(event, this)">
-                                    <td class="sticky-col" style="left:0;text-align:center;" onclick="event.stopPropagation()">
-                                        <input type="checkbox" class="row-check" value="{{ $hbl->id }}" onchange="updateToolbar()">
-                                    </td>
-                                    <td class="sticky-col" style="left:25px;text-align:center;">
-                                        <span class="color-mark" style="background:{{ optional($hbl->airImport)->color ?? '#94a3b8' }}" title="Click to change color" onclick="event.stopPropagation();openColorPicker({{ $hbl->air_import_id }}, '{{ optional($hbl->airImport)->color ?? '' }}')"></span>
-                                    </td>
-                                    <td class="sticky-col" style="left:53px;">
-                                        <a href="/air-import/{{ $hbl->air_import_id }}/edit" class="col-link">{{ optional($hbl->airImport)->file_no ?? '--' }}</a>
-                                    </td>
-                                    <td class="sticky-col" style="left:173px;font-weight:600;">
-                                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                                            <a href="/air-import/{{ $hbl->air_import_id }}/edit" class="col-link">{{ $hbl->hawb_no ?: '--' }}</a>
-                                            <i class="fa fa-eye" style="color:#3b82f6;font-size:10px;cursor:pointer;" title="Quick view" onclick="event.stopPropagation();showToast('info','HAWB: {{ $hbl->hawb_no }}')"></i>
-                                        </div>
-                                    </td>
-                                    <td>{{ optional($hbl->airImport)->mawb_no ?? '--' }}</td>
-                                    <td>{{ $hbl->customer->name ?? '--' }}</td>
-                                    <td>{{ $hbl->shipper->name ?? '--' }}</td>
-                                    <td>{{ $hbl->consignee->name ?? '--' }}</td>
-                                    <td style="text-align:right;">{{ $hbl->pkg_qty ?? '--' }}</td>
-                                    <td style="text-align:right;">{{ $hbl->gross_weight ? number_format($hbl->gross_weight, 2) : '0.00' }}</td>
-                                    <td style="text-align:right;">{{ $hbl->chargeable_weight ? number_format($hbl->chargeable_weight, 2) : '0.00' }}</td>
-                                    <td>{{ optional($hbl->airImport)->etd ? $hbl->airImport->etd->format('m-d-Y') : '--' }}</td>
-                                    <td>{{ optional($hbl->airImport)->eta ? $hbl->airImport->eta->format('m-d-Y') : '--' }}</td>
-                                    <td>{{ optional($hbl->airImport)->depPort->name ?? '--' }}</td>
-                                    <td>{{ optional($hbl->airImport)->dstPort->name ?? '--' }}</td>
-                                    <td>{{ $hbl->salesPerson->name ?? '--' }}</td>
-                                    <td>{{ $hbl->op->name ?? '--' }}</td>
-                                    <td>{{ $hbl->created_at ? $hbl->created_at->format('m-d-Y') : '--' }}</td>
-                                </tr>
-                            @empty
-                                <tr id="empty-row">
-                                    <td colspan="50" style="text-align:center;padding:30px 10px;color:#94a3b8;">
-                                        <i class="fa fa-inbox" style="font-size:28px;display:block;margin-bottom:8px;"></i>
-                                        No HAWBs found.
-                                    </td>
-                                </tr>
-                            @endforelse
+                                @include('air-import.partials.hbl-list-rows', ['hbls' => $hbls])
                             </tbody>
                         </table>
                     </div>
@@ -292,28 +273,37 @@
     ================================================================ */
     async function updateGrid(url) {
         try {
-            var response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            var response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } });
             if (!response.ok) throw new Error('Response not OK');
-            var text = await response.text();
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(text, 'text/html');
+            var data = await response.json();
 
-            var newBody = doc.getElementById('grid-body');
-            var newPagination = doc.getElementById('pagination-container');
-
-            if (newBody) document.getElementById('grid-body').innerHTML = newBody.innerHTML;
-            if (newPagination) document.getElementById('pagination-container').innerHTML = newPagination.innerHTML;
-
-            ['stat-first', 'stat-last', 'stat-total'].forEach(function(id) {
-                var el = doc.getElementById(id);
-                if (el) document.getElementById(id).textContent = el.textContent;
-            });
+            if (data.html !== undefined) {
+                document.getElementById('grid-body').innerHTML = data.html;
+                document.getElementById('pagination-container').innerHTML = data.pagination || '';
+                document.getElementById('stat-first').textContent = data.first || 0;
+                document.getElementById('stat-last').textContent = data.last || 0;
+                document.getElementById('stat-total').textContent = data.total || 0;
+            } else {
+                var doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+                var newBody = doc.getElementById('grid-body');
+                var newPagination = doc.getElementById('pagination-container');
+                if (newBody) document.getElementById('grid-body').innerHTML = newBody.innerHTML;
+                if (newPagination) document.getElementById('pagination-container').innerHTML = newPagination.innerHTML;
+            }
 
             updateToolbar();
         } catch (e) {
             showToast('error', 'Failed to update grid');
         }
     }
+
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('#pagination-container a, .tp-pagination a');
+        if (link) {
+            e.preventDefault();
+            updateGrid(link.href);
+        }
+    });
 
     function quickSearch(val) {
         clearTimeout(searchTimer);
@@ -332,22 +322,19 @@
         6: 'filter_shipper', 7: 'filter_consignee'
     };
 
+    function applyFiltersTyping() { clearTimeout(filterTimer); filterTimer = setTimeout(applyFilters, 400); }
+
     function applyFilters() {
-        clearTimeout(filterTimer);
-        filterTimer = setTimeout(function() {
-            var url = new URL(window.location.href);
-            var inputs = [...document.querySelectorAll('#filter-row .filter-input')];
-            inputs.forEach(function(inp) {
-                var key = FILTER_MAP[inp.dataset.colIdx];
-                if (key) {
-                    var val = inp.value.trim();
-                    if (val) url.searchParams.set(key, val);
-                    else url.searchParams.delete(key);
-                }
-            });
-            url.searchParams.delete('page');
-            updateGrid(url.toString());
-        }, 300);
+        var url = new URL(window.location.href);
+        document.querySelectorAll('#filter-row .filter-input').forEach(function(inp) {
+            var param = inp.dataset.param;
+            if (param) {
+                if (inp.value.trim()) url.searchParams.set(param, inp.value.trim());
+                else url.searchParams.delete(param);
+            }
+        });
+        url.searchParams.delete('page');
+        updateGrid(url.toString());
     }
 
     /* ================================================================
@@ -577,18 +564,28 @@
        EXPORT CSV
     ================================================================ */
     function exportCsv() {
+        showToast('info', 'Preparing Excel export...');
         var q = document.getElementById('quick-search')?.value?.trim();
         var params = [];
         if (q) params.push('search=' + encodeURIComponent(q));
         document.querySelectorAll('#filter-row .filter-input').forEach(function(inp) {
             if (inp.value.trim()) {
-                var key = FILTER_MAP[inp.dataset.colIdx];
+                var key = FILTER_MAP[inp.dataset.colIdx] || inp.dataset.param;
                 if (key) params.push(key + '=' + encodeURIComponent(inp.value.trim()));
             }
         });
         var base = '/air-import/hbl-export-csv';
-        if (params.length) window.location.href = base + '?' + params.join('&');
-        else window.location.href = base;
+        var url = params.length ? base + '?' + params.join('&') : base;
+        
+        var iframe = document.getElementById('download-iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+        iframe.src = url;
+        setTimeout(function() { showToast('success', 'Excel export started!'); }, 800);
     }
 
     /* ================================================================

@@ -169,57 +169,7 @@
                             </thead>
 
                             <tbody id="grid-body">
-                            @forelse($shipments as $shipment)
-                                <tr id="shipment-row-{{ $shipment->id }}" data-id="{{ $shipment->id }}" onclick="rowClick(event, this)">
-                                    <td class="sticky-col" style="left:0;text-align:center;" onclick="event.stopPropagation()">
-                                        <input type="checkbox" class="row-check" value="{{ $shipment->id }}" onchange="updateToolbar()">
-                                    </td>
-                                    <td class="sticky-col" style="left:25px;text-align:center;" onclick="event.stopPropagation()">
-                                        <i class="fa fa-lock" style="color:#94a3b8;cursor:pointer;font-size:10px;" onclick="toggleLock(this)"></i>
-                                    </td>
-                                    <td class="sticky-col" style="left:53px;font-weight:600;">
-                                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                                            <a href="/air-import/{{ $shipment->id }}/edit" class="col-link">{{ $shipment->file_no ?: '--' }}</a>
-                                            <i class="fa fa-arrow-right action-icon"></i>
-                                        </div>
-                                    </td>
-                                    <td class="sticky-col" style="left:173px;text-align:center;">
-                                        <span class="color-mark" style="background:{{ $shipment->color ?? '#fff' }}" title="Click to change color" onclick="event.stopPropagation();openColorPicker({{ $shipment->id }}, '{{ $shipment->color ?? '' }}')"></span>
-                                    </td>
-                                    <td class="sticky-col" style="left:213px;font-weight:600;border-right:1px solid #cbd5e1!important;">
-                                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                                            <span>{{ $shipment->mawb_no ?: '--' }}</span>
-                                            <i class="fa fa-eye" style="color:#3b82f6;font-size:10px;cursor:pointer;" title="Quick view" onclick="event.stopPropagation();showToast('info','MAWB: {{ $shipment->mawb_no }}')"></i>
-                                        </div>
-                                    </td>
-                                    
-                                    <td>{{ $shipment->overseaAgent->name ?? '--' }}</td>
-                                    <td>{{ $shipment->shipper_rel->name ?? '--' }}</td>
-                                    <td>{{ optional($shipment->hbls->first())->shipper->name ?? '--' }}</td>
-                                    <td>{{ $shipment->carrier->name ?? '--' }}</td>
-                                    <td>{{ $shipment->dstPort->name ?? '--' }}</td>
-                                    <td>{{ $shipment->depPort->name ?? '--' }}</td>
-                                    <td>{{ $shipment->eta ? $shipment->eta->format('m-d-Y H:i') : '--' }}</td>
-                                    <td>{{ $shipment->ata ? $shipment->ata->format('m-d-Y H:i') : '--' }}</td>
-                                    <td>{{ $shipment->etd ? $shipment->etd->format('m-d-Y H:i') : '--' }}</td>
-                                    <td>{{ $shipment->atd ? $shipment->atd->format('m-d-Y H:i') : '--' }}</td>
-                                    <td>{{ $shipment->hbls->pluck('hawb_no')->implode(', ') ?: '--' }}</td>
-                                    <td>{{ $shipment->flight_no ?? '--' }}</td>
-                                    <td style="text-align:right;"><a href="#" class="col-link">N/A</a></td>
-                                    <td style="text-align:right;"><a href="#" class="col-link">N/A</a></td>
-                                    <td style="text-align:right;"><a href="#" class="col-link">N/A</a></td>
-                                    <td>{{ $shipment->dmSalesPerson->name ?? '--' }}</td>
-                                    <td>{{ $shipment->operator->name ?? '--' }}</td>
-                                    <td></td>
-                                </tr>
-                            @empty
-                                <tr id="empty-row">
-                                    <td colspan="50" style="text-align:center;padding:30px 10px;color:#94a3b8;">
-                                        <i class="fa fa-inbox" style="font-size:28px;display:block;margin-bottom:8px;"></i>
-                                        No Shipments found.
-                                    </td>
-                                </tr>
-                            @endforelse
+                                @include('air-import.partials.my-shipment-rows', ['shipments' => $shipments])
                             </tbody>
                         </table>
                     </div>
@@ -292,28 +242,37 @@
 
     async function updateGrid(url) {
         try {
-            var response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            var response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } });
             if (!response.ok) throw new Error('Response not OK');
-            var text = await response.text();
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(text, 'text/html');
+            var data = await response.json();
 
-            var newBody = doc.getElementById('grid-body');
-            var newPagination = doc.getElementById('pagination-container');
-
-            if (newBody) document.getElementById('grid-body').innerHTML = newBody.innerHTML;
-            if (newPagination) document.getElementById('pagination-container').innerHTML = newPagination.innerHTML;
-
-            ['stat-first', 'stat-last', 'stat-total'].forEach(function(id) {
-                var el = doc.getElementById(id);
-                if (el) document.getElementById(id).textContent = el.textContent;
-            });
+            if (data.html !== undefined) {
+                document.getElementById('grid-body').innerHTML = data.html;
+                document.getElementById('pagination-container').innerHTML = data.pagination || '';
+                document.getElementById('stat-first').textContent = data.first || 0;
+                document.getElementById('stat-last').textContent = data.last || 0;
+                document.getElementById('stat-total').textContent = data.total || 0;
+            } else {
+                var doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+                var newBody = doc.getElementById('grid-body');
+                var newPagination = doc.getElementById('pagination-container');
+                if (newBody) document.getElementById('grid-body').innerHTML = newBody.innerHTML;
+                if (newPagination) document.getElementById('pagination-container').innerHTML = newPagination.innerHTML;
+            }
 
             updateToolbar();
         } catch (e) {
             showToast('error', 'Failed to update grid');
         }
     }
+
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('#pagination-container a, .tp-pagination a');
+        if (link) {
+            e.preventDefault();
+            updateGrid(link.href);
+        }
+    });
 
     function quickSearch(val) {
         clearTimeout(searchTimer);
@@ -551,6 +510,7 @@
     }
 
     function exportCsv() {
+        showToast('info', 'Preparing Excel export...');
         var q = document.getElementById('quick-search')?.value?.trim();
         var params = [];
         if (q) params.push('search=' + encodeURIComponent(q));
@@ -561,8 +521,17 @@
             }
         });
         var base = '/air-import/export-csv';
-        if (params.length) window.location.href = base + '?' + params.join('&');
-        else window.location.href = base;
+        var url = params.length ? base + '?' + params.join('&') : base;
+        
+        var iframe = document.getElementById('download-iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'download-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+        iframe.src = url;
+        setTimeout(function() { showToast('success', 'Excel export started!'); }, 800);
     }
 
     function showToast(type, msg) {

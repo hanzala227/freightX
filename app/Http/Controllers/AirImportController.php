@@ -25,21 +25,113 @@ class AirImportController extends Controller
         $this->airImportService = $service;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $shipments = AirImport::with([
-            'office', 'operator', 'carrier', 
+        $query = AirImport::with([
+            'office', 'operator', 'carrier',
             'depPort', 'dstPort',
             'forwardingAgent', 'overseaAgent',
             'acctCarrier', 'packageUnit',
-            'hbls'
-        ])
-            ->latest()
-            ->paginate(20);
+            'hbls', 'dmSalesPerson', 'shipper_rel',
+        ]);
 
-        $users = \App\Models\User::all();
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('file_no', 'like', "%{$search}%")
+                  ->orWhere('mawb_no', 'like', "%{$search}%")
+                  ->orWhere('flight_no', 'like', "%{$search}%");
+            });
+        }
+        if ($request->filled('filter_file_no')) {
+            $query->where('file_no', 'like', '%' . $request->filter_file_no . '%');
+        }
+        if ($request->filled('filter_mawb')) {
+            $query->where('mawb_no', 'like', '%' . $request->filter_mawb . '%');
+        }
+        if ($request->filled('filter_agent')) {
+            $query->whereHas('overseaAgent', fn($q) => $q->where('name', 'like', '%' . $request->filter_agent . '%'));
+        }
+        if ($request->filled('filter_shipper')) {
+            $query->whereHas('shipper_rel', fn($q) => $q->where('name', 'like', '%' . $request->filter_shipper . '%'));
+        }
+        if ($request->filled('filter_hawb')) {
+            $query->whereHas('hbls', fn($q) => $q->where('hawb_no', 'like', '%' . $request->filter_hawb . '%'));
+        }
+
+        $shipments = $query->latest()->paginate(20)->withQueryString();
+        $users = \App\Models\User::orderBy('name')->get();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'html' => view('air-import.partials.list-rows', compact('shipments'))->render(),
+                'pagination' => view('vendor.pagination.custom', ['paginator' => $shipments])->render(),
+                'first' => $shipments->firstItem() ?? 0,
+                'last' => $shipments->lastItem() ?? 0,
+                'total' => $shipments->total(),
+            ]);
+        }
 
         return view('air-import.list', compact('shipments', 'users'));
+    }
+
+    public function myShipmentList(Request $request)
+    {
+        $query = AirImport::with([
+            'office', 'operator', 'carrier',
+            'depPort', 'dstPort',
+            'forwardingAgent', 'overseaAgent',
+            'acctCarrier', 'packageUnit',
+            'hbls', 'dmSalesPerson', 'shipper_rel',
+        ]);
+
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $query->where(function($q) use ($userId) {
+                $q->where('op_id', $userId)
+                  ->orWhere('dm_sales_person_id', $userId)
+                  ->orWhereHas('hbls', fn($hq) => $hq->where('sales_person_id', $userId)->orWhere('op_id', $userId));
+            });
+        }
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('file_no', 'like', "%{$search}%")
+                  ->orWhere('mawb_no', 'like', "%{$search}%")
+                  ->orWhere('flight_no', 'like', "%{$search}%");
+            });
+        }
+        if ($request->filled('filter_file_no')) {
+            $query->where('file_no', 'like', '%' . $request->filter_file_no . '%');
+        }
+        if ($request->filled('filter_mawb')) {
+            $query->where('mawb_no', 'like', '%' . $request->filter_mawb . '%');
+        }
+        if ($request->filled('filter_agent')) {
+            $query->whereHas('overseaAgent', fn($q) => $q->where('name', 'like', '%' . $request->filter_agent . '%'));
+        }
+        if ($request->filled('filter_shipper')) {
+            $query->whereHas('shipper_rel', fn($q) => $q->where('name', 'like', '%' . $request->filter_shipper . '%'));
+        }
+        if ($request->filled('filter_hawb')) {
+            $query->whereHas('hbls', fn($q) => $q->where('hawb_no', 'like', '%' . $request->filter_hawb . '%'));
+        }
+
+        $shipments = $query->latest()->paginate(20)->withQueryString();
+        $users = \App\Models\User::orderBy('name')->get();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'html' => view('air-import.partials.my-shipment-rows', compact('shipments'))->render(),
+                'pagination' => view('vendor.pagination.custom', ['paginator' => $shipments])->render(),
+                'first' => $shipments->firstItem() ?? 0,
+                'last' => $shipments->lastItem() ?? 0,
+                'total' => $shipments->total(),
+            ]);
+        }
+
+        return view('air-import.my-shipment-list', compact('shipments', 'users'));
     }
 
     public function create(Request $request)
@@ -264,6 +356,17 @@ class AirImportController extends Controller
 
         $hbls = $query->orderBy($sortField, $sortDir)->paginate(20)->withQueryString();
         $users = \App\Models\User::orderBy('name')->get();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'html' => view('air-import.partials.hbl-list-rows', compact('hbls'))->render(),
+                'pagination' => view('vendor.pagination.custom', ['paginator' => $hbls])->render(),
+                'first' => $hbls->firstItem() ?? 0,
+                'last' => $hbls->lastItem() ?? 0,
+                'total' => $hbls->total(),
+            ]);
+        }
 
         return view('air-import.hbl-list', compact('hbls', 'users'));
     }

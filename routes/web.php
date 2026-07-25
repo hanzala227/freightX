@@ -276,9 +276,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/air-import/{air_import}', [AirImportController::class, 'destroy'])->name('air-import.destroy');
     Route::get('/air-import/list/mbl', [AirImportController::class, 'mblList'])->name('air-import.mbl-list');
     Route::get('/air-import/list/hbl', [AirImportController::class, 'hblList'])->name('air-import.hbl-list');
-    Route::get('/air-import/my-shipment-list', [AirImportController::class, 'index'])->name('air-import.my-shipment-list');
+    Route::get('/air-import/my-shipment-list', [AirImportController::class, 'myShipmentList'])->name('air-import.my-shipment-list');
     Route::match(['GET','POST','DELETE'], '/air-import/bulk-block', [AirImportController::class, 'bulkBlock'])->name('air-import.bulk-block');
     Route::match(['GET','POST','DELETE'], '/air-import/bulk-unblock', [AirImportController::class, 'bulkUnblock'])->name('air-import.bulk-unblock');
+    Route::match(['GET','POST','DELETE'], '/air-import/bulk-delete', [AirImportController::class, 'bulkDelete'])->name('air-import.bulk-delete');
+    Route::post('/air-import/bulk-change-op', [AirImportController::class, 'bulkChangeOp'])->name('air-import.bulk-change-op');
     Route::post('/air-import/bulk-change-sales', [AirImportController::class, 'bulkChangeSales'])->name('air-import.bulk-change-sales');
     Route::post('/air-import/hbl-bulk-delete', [AirImportController::class, 'hblBulkDelete'])->name('air-import.hbl-bulk-delete');
     Route::post('/air-import/hbl-bulk-block', [AirImportController::class, 'hblBulkBlock'])->name('air-import.hbl-bulk-block');
