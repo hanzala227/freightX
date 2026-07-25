@@ -97,7 +97,7 @@
                 isDirectMaster: {{ isset($airImport) && $airImport->is_direct_master ? 'true' : 'false' }},
                 showMore: false,
                 showClipboardModal: false,
-                showQuoteModal: '{{ $page ?? "" }}' === 'air-import.create-quote',
+                showQuoteModal: false,
                 showQuoteConfig: false,
                 showWrModal: false,
                 activeHblForReceipts: null,
@@ -662,23 +662,86 @@
                     this.showMblSection = false;
                 },
                 removeHbl(idx) { this.hawbs.splice(idx, 1); },
-                confirmQuoteSelection() {
-                    this.form.mawb_number = this.quoteForm.mawb_no;
-                    this.form.eta = this.quoteForm.eta;
-                    this.form.etd = this.quoteForm.etd;
-                    
-                    if (this.quoteForm.customer_id) this.form.dm_customer_id = this.quoteForm.customer_id;
-                    if (this.quoteForm.sales_person_id) this.form.dm_sales_person_id = this.quoteForm.sales_person_id;
-                    if (this.quoteForm.pol_id) this.form.pol_id = this.quoteForm.pol_id;
-                    if (this.quoteForm.pod_id) this.form.pod_id = this.quoteForm.pod_id;
-                    if (this.quoteForm.incoterms) this.form.incoterm_id = this.quoteForm.incoterms;
-                    
-                    if(this.hawbs.length === 0) this.addHbl();
-                    this.hawbs[0].hbl_no = this.quoteForm.hawb_no;
-                    if (this.quoteForm.quote_no) {
-                        this.hawbs[0].quotation_no = this.quoteForm.quote_no;
+                closeQuoteModal() {
+                    if (window.location.search.includes('load_from_quotation=true') || '{{ $page ?? "" }}' === 'air-import.create-quote') {
+                        window.location.href = '/air-import/create';
+                    } else {
+                        this.showQuoteModal = false;
                     }
-                    
+                },
+                confirmQuoteSelection() {
+                    const q = this.quoteForm;
+
+                    // ── HAWB reactive fields ──
+                    this.hawb.hbl_no       = q.hawb_no   || '';
+                    this.hawb.customer_id  = q.customer_id || '';
+                    this.hawb.sales_person_id = q.sales_person_id || '';
+                    this.hawb.incoterm_id  = q.incoterms || '';
+
+                    // ── Sync to hawbs[0] if it exists ──
+                    if (this.hawbs.length === 0) this.addHbl();
+                    this.hawbs[0].hbl_no         = q.hawb_no   || '';
+                    this.hawbs[0].customer_id    = q.customer_id || '';
+                    this.hawbs[0].sales_person_id = q.sales_person_id || '';
+                    this.hawbs[0].quotation_no   = q.quote_no  || '';
+
+                    // ── Fill static MAWB form name= fields via DOM ──
+                    const setVal = (name, val) => {
+                        const el = document.querySelector(`[name="${name}"]`);
+                        if (el && val) {
+                            if (el.tagName === 'SELECT') {
+                                el.value = String(val);
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            } else {
+                                el.value = val;
+                                el.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }
+                    };
+
+                    // MAWB No
+                    setVal('mawb_no', q.mawb_no || '');
+
+                    // ETD — convert YYYY-MM-DD to datetime-local
+                    if (q.etd) setVal('etd', q.etd.length === 10 ? q.etd + 'T00:00' : q.etd);
+
+                    // ETA — convert YYYY-MM-DD to datetime-local
+                    if (q.eta) setVal('eta', q.eta.length === 10 ? q.eta + 'T00:00' : q.eta);
+
+                    // Departure (dep_port_id) & Destination (dst_port_id)
+                    if (q.pol_id) setVal('dep_port_id', q.pol_id);
+                    if (q.pod_id) setVal('dst_port_id', q.pod_id);
+
+                    // Oversea Agent
+                    if (q.oversea_agent_id) setVal('oversea_agent_id', q.oversea_agent_id);
+
+                    // Sales (dm_sales_person_id on MAWB)
+                    if (q.sales_person_id) setVal('dm_sales_person_id', q.sales_person_id);
+
+                    // HAWB No (top bar input)
+                    setVal('hbl_no', q.hawb_no || '');
+
+                    // Customer (HAWB section)
+                    if (q.customer_id) setVal('customer_id', q.customer_id);
+
+                    // OP (hidden input op_id)
+                    if (q.op_id) setVal('op_id', q.op_id);
+
+                    // Incoterms
+                    if (q.incoterms_id) setVal('incoterm_id', q.incoterms_id);
+
+                    // Weights & Volume
+                    if (q.gross_weight_kg) setVal('gross_weight_kg', q.gross_weight_kg);
+                    if (q.gross_weight_lb) setVal('gross_weight_lb', q.gross_weight_lb);
+                    if (q.volume_cbm)      setVal('volume_cbm', q.volume_cbm);
+
+                    // HAWB reactive weight fields
+                    if (q.gross_weight_kg) this.hawb.gross_weight_kg = q.gross_weight_kg;
+                    if (q.gross_weight_lb) this.hawb.gross_weight_lb = q.gross_weight_lb;
+                    if (q.volume_cbm)      this.hawb.volume_cbm = q.volume_cbm;
+                    if (q.incoterms_id)    this.hawb.incoterm_id = q.incoterms_id;
+
+                    // ── Load selected charge items ──
                     if (this.selectedQuote && this.selectedQuote.items) {
                         const items = this.selectedQuote.items.filter(item => item.selected !== false);
                         items.forEach(item => {
@@ -692,9 +755,9 @@
                                 ppc: 'Colle',
                                 chrg_code: item.charge_code,
                                 charge_name: item.charge_name,
-                                currency: item.currency || 'USD',
+                                currency: item.currency ? (item.currency.code || item.currency) : 'USD',
                                 rate: item.rate,
-                                qty: item.qty,
+                                qty: item.qty || 1,
                                 qty_type: item.unit || 'UNIT',
                                 roe: 1.0,
                                 vat: 0,
@@ -706,12 +769,41 @@
                             });
                         });
                     }
+
                     this.showQuoteModal = false;
+                    if (typeof showToast === 'function') {
+                        showToast('success', 'Quotation data loaded successfully');
+                    }
                 },
                 init() {
+                    console.log('Alpine JS initialized. Route page:', '{{ $page ?? "" }}');
+                    console.log('Location href:', window.location.href);
+                    
                     if (this.hawbs.length === 0) {
                         this.addHbl();
                     }
+                    if (window.location.search.includes('load_from_quotation=true') || '{{ $page ?? "" }}' === 'air-import.create-quote' || window.location.href.includes('create-quote')) {
+                        this.showQuoteModal = true;
+                    }
+                    
+                    // Watch for changes to verify it's updating
+                    this.$watch('showQuoteModal', (value) => {
+                        if (value) { this.quoteStep = 1; }
+                    });
+                },
+                quoteItems: {
+                    @foreach($quotations as $q)
+                    "{{ $q->quote_no }}": {!! json_encode($q->items->map(fn($i) => [
+                        'id' => $i->id,
+                        'charge_code' => $i->charge_code,
+                        'charge_name' => $i->charge_name,
+                        'qty' => (float)$i->qty,
+                        'unit' => $i->unit,
+                        'currency' => $i->currency ? ['code' => $i->currency->code] : ['code' => 'USD'],
+                        'rate' => (float)$i->rate,
+                        'amount' => (float)$i->amount,
+                    ])->values()->toArray()) !!},
+                    @endforeach
                 }
             }
         }
@@ -1863,12 +1955,141 @@
         </div>
         </form>
 
-        <!-- Load Quotation Data Modal -->
-        <div x-show="showQuoteModal" class="modal-overlay" x-cloak>
-            <div class="modal-container" style="max-width: 950px; width: 95%; max-height: 95vh; display: flex; flex-direction: column;">
+        <!-- Dimensions Modal -->
+    <!-- Volume & Gross Weight Calculator Modal -->
+    <div x-show="showDimensionsModal" 
+         x-cloak
+         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;"
+         @click.self="closeDimensionsModal()">
+        <div style="background: white; border-radius: 4px; width: 750px; max-width: 95%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-size: 11px;">
+            <!-- Modal Header -->
+            <div style="padding: 12px 18px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 500; color: #555;">
+                    Volume & Gross Weight Calculator
+                </h3>
+                <button type="button" @click="closeDimensionsModal()" style="background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 0;">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding: 15px 18px;">
+                <!-- Toolbar & Unit Switcher -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" @click="addDimensionRow()" style="background: #26a69a; color: #fff; border: none; width: 26px; height: 26px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                        <button type="button" @click="deleteSelectedDimensions()" style="background: #fff; color: #888; border: 1px solid #ddd; width: 26px; height: 26px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa fa-trash-o"></i>
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center; color: #666; font-size: 11px;">
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                            <input type="radio" x-model="dimensionUnit" value="CM" style="margin: 0;"> CM
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                            <input type="radio" x-model="dimensionUnit" value="Inch" style="margin: 0;"> Inch
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                            <input type="radio" x-model="dimensionUnit" value="Feet" style="margin: 0;"> Feet
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Calculator Table -->
+                <div style="border: 1px solid #ccc; max-height: 250px; overflow-y: auto;">
+                    <table class="table-custom" style="width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px;">
+                        <thead>
+                            <tr style="background: #888; color: #fff;">
+                                <th style="width: 30px; text-align: center; background: #888; color: #fff; border-right: 1px solid #999; padding: 6px 4px;">
+                                    <input type="checkbox" @change="dimensionRows.forEach(r => r.selected = $event.target.checked)">
+                                </th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Length</th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Width</th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Height</th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">PCS</th>
+                                <th colspan="2" style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 4px;">
+                                    Gross Weight
+                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
+                                        <span style="width: 50%;">KGS</span>
+                                        <span style="width: 50%;">LBS</span>
+                                    </div>
+                                </th>
+                                <th colspan="2" style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 4px;">
+                                    Volume Weight
+                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
+                                        <span style="width: 50%;">KGS</span>
+                                        <span style="width: 50%;">LBS</span>
+                                    </div>
+                                </th>
+                                <th colspan="2" style="background: #888; color: #fff; text-align: center; padding: 4px;">
+                                    Measurement
+                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
+                                        <span style="width: 50%;">CBM</span>
+                                        <span style="width: 50%;">CFT</span>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(row, idx) in dimensionRows" :key="idx">
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="text-align: center; padding: 4px;">
+                                        <input type="checkbox" x-model="row.selected">
+                                    </td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.length" placeholder="0"></td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.width" placeholder="0"></td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.height" placeholder="0"></td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="1" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.pcs" placeholder="1"></td>
+                                    
+                                    <!-- Gross Weight -->
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolKg(row).toFixed(2)"></td>
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolLb(row).toFixed(2)"></td>
+                                    
+                                    <!-- Volume Weight -->
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolKg(row).toFixed(2)"></td>
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolLb(row).toFixed(2)"></td>
+                                    
+                                    <!-- Measurement -->
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowCbm(row).toFixed(2)"></td>
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowCft(row).toFixed(2)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #fafafa; font-weight: bold; border-top: 2px solid #ccc;">
+                                <td colspan="4" style="text-align: right; padding: 6px;">Total</td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimPcs"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolKg.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolLb.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolKg.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolLb.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimCbm.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimCft.toFixed(2)"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="padding: 12px 18px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; background: #fff;">
+                <button type="button" @click="closeDimensionsModal()" class="btn-default-gf" style="padding: 5px 15px; font-size: 12px; background: #e5e5e5; border: none; color: #333; border-radius: 2px;">
+                    Cancel
+                </button>
+                <button type="button" @click="applyDimensions()" class="btn-tool" style="padding: 5px 15px; font-size: 12px; background: #31708f; border: none; color: #fff; border-radius: 2px;">
+                    Apply
+                </button>
+            </div>
+        </div>
+    <!-- Load Quotation Data Modal -->
+        <template x-teleport="body">
+        <div x-show="showQuoteModal" class="modal-overlay" style="display:none;z-index:99999;" x-cloak>
+            <div class="modal-container" style="max-width:980px;width:92%;max-height:88vh;display:flex;flex-direction:column;border-top:3px solid #36c6d3;">
                 <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
                     <span style="font-weight: 300; font-size: 18px; color: #777;">Load Quotation Data</span>
-                    <i class="fa fa-times cursor-pointer text-gray-400 hover:text-gray-600" @click="window.location.href = '/air-import/create'" style="font-size: 16px;"></i>
+                    <i class="fa fa-times cursor-pointer text-gray-400 hover:text-gray-600" @click="closeQuoteModal()" style="font-size: 16px;"></i>
                 </div>
                 
                 <div class="modal-body hide-scrollbar" style="padding: 15px 20px; background: #fff; overflow-y: auto; flex: 1;">
@@ -1910,34 +2131,29 @@
 
                     <div x-show="quoteStep === 1">
                         <div class="form-grid-4" style="grid-template-columns: repeat(3, 1fr); gap: 10px 20px;">
-                            @php
-                                $agents = \App\Models\TradePartner::orderBy('name')->get();
-                                $ports = \App\Models\Port::orderBy('name')->get();
-                                $users = \App\Models\User::orderBy('name')->get();
-                            @endphp
                             <div class="flex flex-col gap-1">
                                 <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Customer</label><div class="form-input-container">
-                                    <select class="form-control-gf" x-model="filters.customer">
+                                    <select class="form-control-gf" x-model="filters.customer" @change="applySearch()">
                                         <option value="">Select...</option>
-                                        @foreach($agents as $agent)
+                                        @foreach($allAgents as $agent)
                                             <option value="{{ $agent->id }}">{{ $agent->name }}</option>
                                         @endforeach
                                     </select>
                                 </div></div>
                                 <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Departure</label><div class="form-input-container">
-                                    <select class="form-control-gf" x-model="filters.pol">
+                                    <select class="form-control-gf" x-model="filters.pol" @change="applySearch()">
                                         <option value="">Select...</option>
                                         @foreach($ports as $port)
                                             <option value="{{ $port->id }}">{{ $port->name }}</option>
                                         @endforeach
                                     </select>
                                 </div></div>
-                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Quote No.</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.quote_no"></div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Quote No.</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.quote_no" @keyup="applySearch()" placeholder="Search..."></div></div>
                             </div>
                             <div class="flex flex-col gap-1">
-                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Valid Date</label><div class="form-input-container"><input type="date" class="form-control-gf" x-model="filters.valid_date"> <i class="fa fa-calendar" style="margin-left: 5px; color: #888;"></i></div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Valid Date</label><div class="form-input-container"><input type="date" class="form-control-gf" x-model="filters.valid_date" @change="applySearch()"> <i class="fa fa-calendar" style="margin-left: 5px; color: #888;"></i></div></div>
                                 <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Destination</label><div class="form-input-container">
-                                    <select class="form-control-gf" x-model="filters.pod">
+                                    <select class="form-control-gf" x-model="filters.pod" @change="applySearch()">
                                         <option value="">Select...</option>
                                         @foreach($ports as $port)
                                             <option value="{{ $port->id }}">{{ $port->name }}</option>
@@ -1945,18 +2161,23 @@
                                     </select>
                                 </div></div>
                                 <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Status</label><div class="form-input-container">
-                                    <select class="form-control-gf" x-model="filters.status">
+                                    <select class="form-control-gf" x-model="filters.status" @change="applySearch()">
                                         <option value="">Select...</option>
-                                        <option value="Won">Won</option>
                                         <option value="Draft">Draft</option>
+                                        <option value="Sent">Sent</option>
+                                        <option value="Won">Won</option>
+                                        <option value="Lost">Lost</option>
                                         <option value="Expired">Expired</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Cancelled">Cancelled</option>
+                                        <option value="Ghosted">Ghosted</option>
                                     </select>
                                 </div></div>
                             </div>
                             <div class="flex flex-col gap-1">
-                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Commodity</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.commodity"></div></div>
+                                <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Commodity</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.commodity" @keyup="applySearch()" placeholder="Search..."></div></div>
                                 <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">Sales</label><div class="form-input-container">
-                                    <select class="form-control-gf" x-model="filters.sales">
+                                    <select class="form-control-gf" x-model="filters.sales" @change="applySearch()">
                                         <option value="">Select...</option>
                                         @foreach($users as $user)
                                             <option value="{{ $user->id }}">{{ $user->name }}</option>
@@ -1964,7 +2185,7 @@
                                     </select>
                                 </div></div>
                                 <div class="form-group-gf" style="margin-bottom: 5px;"><label class="form-label-gf" style="width: 80px; text-align: right; padding-right: 10px;">OP</label><div class="form-input-container">
-                                    <select class="form-control-gf" x-model="filters.op">
+                                    <select class="form-control-gf" x-model="filters.op" @change="applySearch()">
                                         <option value="">Select...</option>
                                         @foreach($users as $user)
                                             <option value="{{ $user->id }}">{{ $user->name }}</option>
@@ -1974,16 +2195,13 @@
                             </div>
                         </div>
                         
-                        <div style="display: flex; justify-content: center; gap: 10px; margin: 15px 0 10px 0;">
+                        <div style="display: flex; justify-content: center; gap: 10px; margin: 12px 0 10px 0;">
                             <button type="button" class="btn-default-gf" @click="clearSearch()" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; font-weight: normal; color: #333;">Clear</button>
                             <button type="button" class="btn-tool" @click="applySearch()" style="padding: 6px 15px; font-size: 13px; background: #4b77be; border: none; font-weight: normal; color: #fff;">Search</button>
                         </div>
                         
-                        <hr style="border-top: 1px solid #eee; margin: 15px 0;">
+                        <hr style="border-top: 1px solid #eee; margin: 10px 0;">
                         
-                        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-                            <button type="button" class="btn-tool-secondary" style="border-radius: 12px; padding: 4px 10px; font-size: 11px;"><i class="fa fa-cogs"></i> Config</button>
-                        </div>
                         
                         <div class="hide-scrollbar" style="width: 100%; overflow-x: auto; border: 1px solid #ccc; margin-bottom: 15px;">
                             <table class="table-custom" style="border: none; margin-bottom: 0;">
@@ -2005,29 +2223,32 @@
                                      @foreach($quotations as $quote)
                                      <tr x-show="matchFilters({quote_no: '{{ $quote->quote_no }}', customer_id: '{{ $quote->customer_id }}', pol_id: '{{ $quote->pol_id }}', pod_id: '{{ $quote->pod_id }}', status: '{{ $quote->status }}', sales_person_id: '{{ $quote->sales_person_id }}'})">
                                          <td style="text-align: center;"><input type="radio" name="quote_sel" :checked="selectedQuote && selectedQuote.quote_no === '{{ $quote->quote_no }}'" 
-                                             @click='selectQuote({
-                                                 quote_no: "{{ $quote->quote_no }}", 
-                                                 mawb_no: "MAWB-{{ $quote->quote_no }}", 
-                                                 hawb_no: "HAWB-{{ $quote->quote_no }}", 
-                                                 eta: "{{ $quote->expiry_date ? $quote->expiry_date->format('Y-m-d') : '' }}", 
-                                                 etd: "{{ $quote->quote_date ? $quote->quote_date->format('Y-m-d') : '' }}", 
-                                                 customer: "{{ addslashes($quote->customer->name ?? '') }}", 
-                                                 customer_id: "{{ $quote->customer_id }}",
-                                                 sales: "{{ addslashes($quote->salesPerson->name ?? '') }}", 
-                                                 sales_person_id: "{{ $quote->sales_person_id }}",
-                                                 pol_name: "{{ addslashes($quote->pol->name ?? '') }}", 
-                                                 pod_name: "{{ addslashes($quote->pod->name ?? '') }}", 
-                                                 pol_id: "{{ $quote->pol_id }}",
-                                                 pod_id: "{{ $quote->pod_id }}",
-                                                 carrier_name: "", 
-                                                 oversea_agent: "{{ addslashes($quote->customer->name ?? '') }}", 
-                                                 service_term: "CY/CY", 
-                                                 op: "", 
-                                                 incoterms: "FOB", 
-                                                 detail: "Quotation loaded successfully", 
-                                                 ship_mode: "LCL",
-                                                 items: JSON.parse(decodeURIComponent("{{ rawurlencode($quote->items->toJson()) }}"))
-                                             })'></td>
+                                             @click="selectQuote({
+    quote_no: '{{ $quote->quote_no }}',
+    mawb_no: 'MAWB-{{ $quote->quote_no }}',
+    hawb_no: 'HAWB-{{ $quote->quote_no }}',
+    eta: '{{ $quote->expiry_date ? $quote->expiry_date->format('Y-m-d') : '' }}',
+    etd: '{{ $quote->quote_date ? $quote->quote_date->format('Y-m-d') : '' }}',
+    customer: '{{ addslashes($quote->customer->name ?? '') }}',
+    customer_id: '{{ $quote->customer_id }}',
+    sales: '{{ addslashes($quote->salesPerson->name ?? '') }}',
+    sales_person_id: '{{ $quote->sales_person_id }}',
+    op_id: '{{ $quote->op_id }}',
+    pol_name: '{{ addslashes($quote->pol->name ?? '') }}',
+    pod_name: '{{ addslashes($quote->pod->name ?? '') }}',
+    pol_id: '{{ $quote->pol_id }}',
+    pod_id: '{{ $quote->pod_id }}',
+    carrier_name: '',
+    oversea_agent_id: '{{ $quote->agent_id }}',
+    service_term: '{{ addslashes($quote->service_term ?? '') }}',
+    incoterms_id: '{{ $quote->incoterms_id }}',
+    commodity: '{{ addslashes($quote->commodity ?? '') }}',
+    gross_weight_kg: '{{ $quote->weight_kg ?? '' }}',
+    gross_weight_lb: '{{ $quote->weight_lb ?? '' }}',
+    volume_cbm: '{{ $quote->volume_cbm ?? '' }}',
+    ship_mode: '{{ addslashes($quote->ship_mode ?? '') }}',
+    items: (quoteItems && quoteItems['{{ $quote->quote_no }}']) ? quoteItems['{{ $quote->quote_no }}'].map(i => ({...i, selected: true})) : []
+})"></td>
                                          <td><a href="#" style="color: #337ab7; text-decoration: none;">{{ $quote->quote_no }}</a></td>
                                          <td>{{ $quote->quote_date ? $quote->quote_date->format('m-d-Y') : '' }} ~ {{ $quote->expiry_date ? $quote->expiry_date->format('m-d-Y') : '' }}</td>
                                          <td><span style="background: {{ $quote->status === 'ACCEPTED' ? '#26c281' : '#f3565d' }}; color: #fff; padding: 2px 5px; border-radius: 2px; font-size: 10px;">{{ $quote->status }}</span></td>
@@ -2187,143 +2408,19 @@
                 </div>
                 
                 <div class="modal-footer" style="padding: 15px 30px; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" class="btn-default-gf" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; color: #333;" @click="window.location.href = '/air-import/create'">Cancel</button>
+                    <button type="button" class="btn-default-gf" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; color: #333;" @click="closeQuoteModal()">Cancel</button>
                     <button type="button" x-show="quoteStep > 1" class="btn-default-gf" style="padding: 6px 15px; font-size: 13px; background: #e5e5e5; border: none; color: #333;" @click="quoteStep--">Back</button>
                     <button type="button" x-show="quoteStep < 3" class="btn-tool" :disabled="(quoteStep === 1 && !selectedQuote) || (quoteStep === 2 && (!quoteForm.mawb_no || !quoteForm.hawb_no || !quoteForm.customer || !quoteForm.eta))" :style="((quoteStep === 1 && !selectedQuote) || (quoteStep === 2 && (!quoteForm.mawb_no || !quoteForm.hawb_no || !quoteForm.customer || !quoteForm.eta))) ? 'padding: 6px 15px; font-size: 13px; background: #ccc; border: none; color: #666; cursor: not-allowed; opacity: 0.7;' : 'padding: 6px 15px; font-size: 13px; background: #36c6d3; border: none; color: #fff;'" @click="quoteStep++">Next</button>
                     <button type="button" x-show="quoteStep === 3" class="btn-tool" style="padding: 6px 15px; font-size: 13px; background: #36c6d3; border: none; color: #fff;" @click="confirmQuoteSelection">Confirm</button>
                 </div>
             </div>
         </div>
+        </template>
     </div>
 
-    <!-- Dimensions Modal -->
-    <!-- Volume & Gross Weight Calculator Modal -->
-    <div x-show="showDimensionsModal" 
-         x-cloak
-         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;"
-         @click.self="closeDimensionsModal()">
-        <div style="background: white; border-radius: 4px; width: 750px; max-width: 95%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-size: 11px;">
-            <!-- Modal Header -->
-            <div style="padding: 12px 18px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 15px; font-weight: 500; color: #555;">
-                    Volume & Gross Weight Calculator
-                </h3>
-                <button type="button" @click="closeDimensionsModal()" style="background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 0;">
-                    <i class="fa fa-times"></i>
-                </button>
-            </div>
-
-            <!-- Modal Body -->
-            <div style="padding: 15px 18px;">
-                <!-- Toolbar & Unit Switcher -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="display: flex; gap: 4px;">
-                        <button type="button" @click="addDimensionRow()" style="background: #26a69a; color: #fff; border: none; width: 26px; height: 26px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa fa-plus"></i>
-                        </button>
-                        <button type="button" @click="deleteSelectedDimensions()" style="background: #fff; color: #888; border: 1px solid #ddd; width: 26px; height: 26px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa fa-trash-o"></i>
-                        </button>
-                    </div>
-                    <div style="display: flex; gap: 15px; align-items: center; color: #666; font-size: 11px;">
-                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
-                            <input type="radio" x-model="dimensionUnit" value="CM" style="margin: 0;"> CM
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
-                            <input type="radio" x-model="dimensionUnit" value="Inch" style="margin: 0;"> Inch
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
-                            <input type="radio" x-model="dimensionUnit" value="Feet" style="margin: 0;"> Feet
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Calculator Table -->
-                <div style="border: 1px solid #ccc; max-height: 250px; overflow-y: auto;">
-                    <table class="table-custom" style="width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px;">
-                        <thead>
-                            <tr style="background: #888; color: #fff;">
-                                <th style="width: 30px; text-align: center; background: #888; color: #fff; border-right: 1px solid #999; padding: 6px 4px;">
-                                    <input type="checkbox" @change="dimensionRows.forEach(r => r.selected = $event.target.checked)">
-                                </th>
-                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Length</th>
-                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Width</th>
-                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Height</th>
-                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">PCS</th>
-                                <th colspan="2" style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 4px;">
-                                    Gross Weight
-                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
-                                        <span style="width: 50%;">KGS</span>
-                                        <span style="width: 50%;">LBS</span>
-                                    </div>
-                                </th>
-                                <th colspan="2" style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 4px;">
-                                    Volume Weight
-                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
-                                        <span style="width: 50%;">KGS</span>
-                                        <span style="width: 50%;">LBS</span>
-                                    </div>
-                                </th>
-                                <th colspan="2" style="background: #888; color: #fff; text-align: center; padding: 4px;">
-                                    Measurement
-                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
-                                        <span style="width: 50%;">CBM</span>
-                                        <span style="width: 50%;">CFT</span>
-                                    </div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="(row, idx) in dimensionRows" :key="idx">
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <td style="text-align: center; padding: 4px;">
-                                        <input type="checkbox" x-model="row.selected">
-                                    </td>
-                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.length" placeholder="0"></td>
-                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.width" placeholder="0"></td>
-                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.height" placeholder="0"></td>
-                                    <td style="padding: 2px 4px;"><input type="number" step="1" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.pcs" placeholder="1"></td>
-                                    
-                                    <!-- Gross Weight -->
-                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolKg(row).toFixed(2)"></td>
-                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolLb(row).toFixed(2)"></td>
-                                    
-                                    <!-- Volume Weight -->
-                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolKg(row).toFixed(2)"></td>
-                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolLb(row).toFixed(2)"></td>
-                                    
-                                    <!-- Measurement -->
-                                    <td style="text-align: right; padding: 4px;" x-text="calcRowCbm(row).toFixed(2)"></td>
-                                    <td style="text-align: right; padding: 4px;" x-text="calcRowCft(row).toFixed(2)"></td>
-                                </tr>
-                            </template>
-                        </tbody>
-                        <tfoot>
-                            <tr style="background: #fafafa; font-weight: bold; border-top: 2px solid #ccc;">
-                                <td colspan="4" style="text-align: right; padding: 6px;">Total</td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimPcs"></td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolKg.toFixed(2)"></td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolLb.toFixed(2)"></td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolKg.toFixed(2)"></td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolLb.toFixed(2)"></td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimCbm.toFixed(2)"></td>
-                                <td style="text-align: right; padding: 6px;" x-text="totalDimCft.toFixed(2)"></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Modal Footer -->
-            <div style="padding: 12px 18px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; background: #fff;">
-                <button type="button" @click="closeDimensionsModal()" class="btn-default-gf" style="padding: 5px 15px; font-size: 12px; background: #e5e5e5; border: none; color: #333; border-radius: 2px;">
-                    Cancel
-                </button>
-                <button type="button" @click="applyDimensions()" class="btn-tool" style="padding: 5px 15px; font-size: 12px; background: #31708f; border: none; color: #fff; border-radius: 2px;">
-                    Apply
-                </button>
-            </div>
-        </div>
-    </div>
+    
 </div>
+</div>
+
+
 </x-layout>

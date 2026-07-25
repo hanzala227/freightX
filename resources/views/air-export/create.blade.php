@@ -11,12 +11,7 @@
                 selectedQuote: null,
                 selectQuote(data) {
                     this.selectedQuote = data;
-                    this.quoteForm.mawb_no = data.mawb_no;
-                    this.quoteForm.hawb_no = data.hawb_no;
-                    this.quoteForm.eta = data.eta;
-                    this.quoteForm.etd = data.etd;
-                    this.quoteForm.customer = data.customer;
-                    this.quoteForm.sales = data.sales;
+                    this.quoteForm = data;
                 },
                 filters: {
                     customer: '',
@@ -74,6 +69,20 @@
                     etd: '',
                     customer: '',
                     sales: ''
+                },
+                quoteItems: {
+                    @foreach($quotations as $q)
+                    "{{ $q->quote_no }}": {!! json_encode($q->items->map(fn($i) => [
+                        'id' => $i->id,
+                        'charge_code' => $i->charge_code,
+                        'charge_name' => $i->charge_name,
+                        'qty' => (float)$i->qty,
+                        'unit' => $i->unit,
+                        'currency' => $i->currency ? ['code' => $i->currency->code] : ['code' => 'USD'],
+                        'rate' => (float)$i->rate,
+                        'amount' => (float)$i->amount,
+                    ])->values()->toArray()) !!},
+                    @endforeach
                 },
                 activeTab: 'basic',
                 showMblSection: true,
@@ -258,12 +267,48 @@
                     }
                 },
                 confirmQuoteSelection() {
-                    this.form.mawb_no = this.quoteForm.mawb_no;
-                    this.form.eta = this.quoteForm.eta;
-                    this.form.etd = this.quoteForm.etd;
-                    if(this.hawbs.length === 0) this.addHawb();
-                    this.hawbs[0].hawb_no = this.quoteForm.hawb_no;
+                    const q = this.quoteForm;
+                    
+                    // MAWB
+                    this.form.mawb_no = q.mawb_no || '';
+                    if (q.etd) this.form.etd = q.etd.length === 10 ? q.etd + 'T00:00' : q.etd;
+                    if (q.eta) this.form.eta = q.eta.length === 10 ? q.eta + 'T00:00' : q.eta;
+                    if (q.pol_id) this.form.departure = q.pol_id;
+                    if (q.pod_id) this.form.destination = q.pod_id;
+                    if (q.op_id) this.form.op = q.op_id;
+                    if (q.gross_weight_kg) this.form.gross_weight = q.gross_weight_kg;
+                    if (q.volume_cbm) this.form.volume = q.volume_cbm;
+                    if (q.oversea_agent_id) this.form.co_loader = q.oversea_agent_id; // Using co-loader for forwarding agent
+                    
+                    // HAWB
+                    if (this.hawbs.length === 0) this.addHawb();
+                    this.hawbs[0].hawb_no = q.hawb_no || '';
+                    if (q.customer_id) this.hawbs[0].customer = q.customer_id;
+                    if (q.sales_person_id) this.hawbs[0].sales = q.sales_person_id;
+                    if (q.incoterms_id) this.hawbs[0].incoterms_id = q.incoterms_id;
+                    if (q.gross_weight_kg) this.hawbs[0].gross_weight = q.gross_weight_kg;
+                    if (q.volume_cbm) this.hawbs[0].volume = q.volume_cbm;
+                    if (q.commodity) this.hawbs[0].commodity = q.commodity;
+                    if (q.quote_no) this.hawbs[0].quotation_no = q.quote_no;
+                    
+                    // Charges
+                    if (this.selectedQuote && this.selectedQuote.items) {
+                        const items = this.selectedQuote.items.filter(item => item.selected !== false);
+                        items.forEach(item => {
+                            this.form.other_charges.push({
+                                charge_code: item.charge_code,
+                                description: item.charge_name,
+                                term: 'P',
+                                rate: item.rate,
+                                amount: item.qty
+                            });
+                        });
+                    }
+
                     this.showQuoteModal = false;
+                    if (typeof showToast === 'function') {
+                        showToast('success', 'Quotation data loaded successfully');
+                    }
                 }
             };
         };
@@ -1086,12 +1131,13 @@
             </div>
         </div>
         <!-- QUOTE MODAL -->
-        <div x-show="showQuoteModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; justify-content: center; align-items: flex-start; padding-top: 50px;" x-cloak>
-            <div style="width: 900px; max-width: 95vw; background: #fff; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,.5); display: flex; flex-direction: column; margin: 0 auto;">
-                <div style="padding: 15px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center;">
-                    <h4 style="margin: 0; font-size: 18px; color: #333; font-weight: 500;">Load Quotation Data</h4>
-                    <button type="button" @click="closeQuoteModal()" style="background: none; border: none; font-size: 21px; cursor: pointer; color: #000; opacity: .2;">&times;</button>
-                </div>
+        <template x-teleport="body">
+            <div x-show="showQuoteModal" class="modal-overlay" style="z-index: 999999;" x-cloak>
+                <div class="modal-container" style="width: 900px; max-width: 95vw;">
+                    <div style="padding: 15px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; font-size: 18px; color: #333; font-weight: 500;">Load Quotation Data</h4>
+                        <button type="button" @click="closeQuoteModal()" style="background: none; border: none; font-size: 21px; cursor: pointer; color: #000; opacity: .2;">&times;</button>
+                    </div>
                 
                 <div class="modal-body" style="padding: 20px;">
                     <style>
@@ -1244,17 +1290,43 @@
                                     @endphp
                                     @foreach($quotations as $quote)
                                     <tr x-show="matchFilters({quote_no: '{{ $quote->quote_no }}', customer_id: '{{ $quote->customer_id }}', pol_id: '{{ $quote->pol_id }}', pod_id: '{{ $quote->pod_id }}', status: '{{ $quote->status }}', sales_person_id: '{{ $quote->sales_person_id }}'})" style="border-bottom: 1px solid #e7ecf1;">
-                                        <td style="text-align: center; padding: 6px;"><input type="radio" name="quote_sel" :checked="selectedQuote && selectedQuote.quote_no === '{{ $quote->quote_no }}'" @click="selectQuote({quote_no: '{{ $quote->quote_no }}', mawb_no: 'MAWB-{{ $quote->quote_no }}', hawb_no: 'HAWB-{{ $quote->quote_no }}', eta: '{{ $quote->expiry_date ? $quote->expiry_date->format('Y-m-d') : '' }}', etd: '{{ $quote->quote_date ? $quote->quote_date->format('Y-m-d') : '' }}', customer: '{{ $quote->customer->name ?? '' }}', sales: '{{ $quote->salesPerson->name ?? 'DEMO' }}', pol_name: '{{ $quote->pol->name ?? '' }}', pod_name: '{{ $quote->pod->name ?? '' }}', carrier_name: 'DEMO CARRIER'})"></td>
+                                        <td style="text-align: center; padding: 6px;"><input type="radio" name="quote_sel" :checked="selectedQuote && selectedQuote.quote_no === '{{ $quote->quote_no }}'" 
+                                             @click="selectQuote({
+    quote_no: '{{ $quote->quote_no }}',
+    mawb_no: 'MAWB-{{ $quote->quote_no }}',
+    hawb_no: 'HAWB-{{ $quote->quote_no }}',
+    eta: '{{ $quote->expiry_date ? $quote->expiry_date->format('Y-m-d') : '' }}',
+    etd: '{{ $quote->quote_date ? $quote->quote_date->format('Y-m-d') : '' }}',
+    customer: '{{ addslashes($quote->customer->name ?? '') }}',
+    customer_id: '{{ $quote->customer_id }}',
+    sales: '{{ addslashes($quote->salesPerson->name ?? '') }}',
+    sales_person_id: '{{ $quote->sales_person_id }}',
+    op_id: '{{ $quote->op_id }}',
+    pol_name: '{{ addslashes($quote->pol->name ?? '') }}',
+    pod_name: '{{ addslashes($quote->pod->name ?? '') }}',
+    pol_id: '{{ $quote->pol_id }}',
+    pod_id: '{{ $quote->pod_id }}',
+    carrier_name: '',
+    oversea_agent_id: '{{ $quote->agent_id }}',
+    service_term: '{{ addslashes($quote->service_term ?? '') }}',
+    incoterms_id: '{{ $quote->incoterms_id }}',
+    commodity: '{{ addslashes($quote->commodity ?? '') }}',
+    gross_weight_kg: '{{ $quote->weight_kg ?? '' }}',
+    gross_weight_lb: '{{ $quote->weight_lb ?? '' }}',
+    volume_cbm: '{{ $quote->volume_cbm ?? '' }}',
+    ship_mode: '{{ addslashes($quote->ship_mode ?? '') }}',
+    items: (quoteItems && quoteItems['{{ $quote->quote_no }}']) ? quoteItems['{{ $quote->quote_no }}'].map(i => ({...i, selected: true})) : []
+})"></td>
                                         <td style="padding: 6px;"><a href="#" style="color: #337ab7; text-decoration: none;">{{ $quote->quote_no }}</a></td>
                                         <td style="padding: 6px;">{{ $quote->quote_date ? $quote->quote_date->format('m-d-Y') : '' }} ~ {{ $quote->expiry_date ? $quote->expiry_date->format('m-d-Y') : '' }}</td>
                                         <td style="padding: 6px;"><span style="background: {{ $quote->status === 'ACCEPTED' ? '#26c281' : '#888' }}; color: #fff; padding: 2px 5px; border-radius: 2px; font-size: 10px;">{{ $quote->status }}</span></td>
                                         <td style="padding: 6px;">{{ $quote->created_at->format('Y-m-d') }}</td>
-                                        <td style="padding: 6px;">-</td>
+                                        <td style="padding: 6px;">{{ $quote->commodity ?? '' }}</td>
                                         <td style="padding: 6px;">{{ $quote->pol->name ?? '' }}</td>
                                         <td style="padding: 6px;">{{ $quote->pod->name ?? '' }}</td>
-                                        <td style="padding: 6px;">-</td>
-                                        <td style="padding: 6px;">{{ $quote->salesPerson->name ?? 'DEMO' }}</td>
-                                        <td style="padding: 6px;">-</td>
+                                        <td style="padding: 6px;"></td>
+                                        <td style="padding: 6px;">{{ $quote->salesPerson->name ?? '' }}</td>
+                                        <td style="padding: 6px;">{{ $quote->op->name ?? '' }}</td>
                                     </tr>
                                     @endforeach
                                 </tbody>
@@ -1329,29 +1401,29 @@
                                     <td style="background: #f9fafb; font-weight: 600;"><span style="color: red;">*</span>Customer</td>
                                     <td><input type="text" class="form-control-gf" x-model="quoteForm.customer" style="height: 24px;" readonly style="background-color: #fff;"></td>
                                     <td style="background: #f9fafb; font-weight: 600;">Service Term</td>
-                                    <td>-</td>
+                                    <td x-text="quoteForm.service_term || '-'"></td>
                                 </tr>
                                 <tr>
                                     <td style="background: #f9fafb; font-weight: 600;">Oversea Agent</td>
-                                    <td>-</td>
+                                    <td x-text="quoteForm.oversea_agent_id ? 'Has Agent' : '-'"></td>
                                     <td style="background: #f9fafb; font-weight: 600;">Incoterms</td>
-                                    <td>-</td>
+                                    <td x-text="quoteForm.incoterms_id ? 'Has Incoterm' : '-'"></td>
                                 </tr>
                                 <tr>
                                     <td style="background: #f9fafb; font-weight: 600;">Gross Weight</td>
-                                    <td>-</td>
+                                    <td><span x-text="quoteForm.gross_weight_kg || '0.00'"></span> KG</td>
                                     <td style="background: #f9fafb; font-weight: 600;">Volume Weight</td>
-                                    <td>-</td>
+                                    <td><span x-text="quoteForm.volume_cbm || '0.00'"></span> CBM</td>
                                 </tr>
                                 <tr>
                                     <td style="background: #f9fafb; font-weight: 600;">Chargeable Weight</td>
                                     <td>-</td>
                                     <td style="background: #f9fafb; font-weight: 600;">Sales</td>
-                                    <td>-</td>
+                                    <td x-text="quoteForm.sales || '-'"></td>
                                 </tr>
                                 <tr>
                                     <td style="background: #f9fafb; font-weight: 600;">OP</td>
-                                    <td colspan="3">-</td>
+                                    <td colspan="3" x-text="quoteForm.op_id ? 'Has OP' : '-'"></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1384,7 +1456,21 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
+                                <template x-if="selectedQuote && selectedQuote.items && selectedQuote.items.length > 0">
+                                    <template x-for="(item, index) in selectedQuote.items" :key="index">
+                                        <tr style="border-bottom: 1px solid #f1f3f6;">
+                                            <td style="text-align: center; padding: 6px;"><input type="checkbox" x-model="item.selected"></td>
+                                            <td style="padding: 6px;" x-text="item.charge_code || '-'"></td>
+                                            <td style="padding: 6px;" x-text="item.charge_name || '-'"></td>
+                                            <td style="padding: 6px;" x-text="item.unit || '-'"></td>
+                                            <td style="padding: 6px;" x-text="item.currency ? item.currency.code : 'USD'"></td>
+                                            <td style="padding: 6px;" x-text="item.qty || '1'"></td>
+                                            <td style="padding: 6px; text-align: right;" x-text="Number(item.rate || 0).toFixed(2)"></td>
+                                            <td style="padding: 6px; text-align: right; color: #4b77be;" x-text="Number(item.amount || 0).toFixed(2)"></td>
+                                        </tr>
+                                    </template>
+                                </template>
+                                <tr x-show="!selectedQuote || !selectedQuote.items || selectedQuote.items.length === 0">
                                     <td colspan="8" style="text-align: center; color: #999; padding: 10px;">No charge items in this quotation</td>
                                 </tr>
                             </tbody>
@@ -1397,8 +1483,8 @@
                     <button type="button" class="btn-gofreight" :disabled="(quoteStep === 1 && !selectedQuote) || (quoteStep === 2 && (!quoteForm.mawb_no || !quoteForm.hawb_no || !quoteForm.customer || !quoteForm.etd))" :style="((quoteStep === 1 && !selectedQuote) || (quoteStep === 2 && (!quoteForm.mawb_no || !quoteForm.hawb_no || !quoteForm.customer || !quoteForm.etd))) ? 'background: #ccc; border: none; color: #666; cursor: not-allowed; opacity: 0.7; padding: 6px 12px; font-size: 12px; border-radius: 4px;' : 'background: #1abc9c; padding: 6px 12px; font-size: 12px; border-radius: 4px;'" x-show="quoteStep < 3" @click="quoteStep++">Next</button>
                     <button type="button" class="btn-gofreight" style="background: #1abc9c; padding: 6px 12px; font-size: 12px; border-radius: 4px;" x-show="quoteStep === 3" x-cloak @click="confirmQuoteSelection()">Confirm</button>
                 </div>
+                </div>
             </div>
-        </form>
-    </div>
+        </template>
     </div>
 </x-layout>

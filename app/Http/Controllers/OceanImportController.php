@@ -510,7 +510,7 @@ class OceanImportController extends Controller
             'oceanImport.overseaAgent',
             'oceanImport.cfsLocation',
             'oceanImport.cyLocation',
-            'oceanImport.hbls',
+            'oceanImport.hbls.deliveryLocation',
             'containerType',
             'packageUnit',
             'trucker',

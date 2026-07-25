@@ -10,41 +10,41 @@
     </td>
     <td data-col="file_no" class="sticky-col" style="left:50px;" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-            <a href="{{ $c->oceanImport ? route('ocean-import.edit', $c->oceanImport->id) : '#' }}" class="col-link" target="_blank">{{ $c->oceanImport->file_no ?? 'N/A' }}</a>
+            <a href="{{ $c->oceanImport ? route('ocean-import.edit', $c->oceanImport?->id) : '#' }}" class="col-link" target="_blank">{{ $c->oceanImport?->file_no ?? 'N/A' }}</a>
             <i class="fa fa-external-link" style="color:#94a3b8;font-size:10px;cursor:pointer;" title="Open"></i>
         </div>
     </td>
     <td data-col="color" class="sticky-col" style="left:185px;text-align:center;">
-        <span class="color-mark" style="background:{{ $c->oceanImport->color ?? '#94a3b8' }}" title="Click to change status color" onclick="event.stopPropagation();openColorPicker({{ $c->oceanImport->id ?? 0 }}, '{{ $c->oceanImport->color ?? '' }}')"></span>
+        <span class="color-mark" style="background:{{ $c->oceanImport?->color ?? '#94a3b8' }}" title="Click to change status color" onclick="event.stopPropagation();openColorPicker({{ $c->oceanImport?->id ?? 0 }}, '{{ $c->oceanImport?->color ?? '' }}')"></span>
     </td>
     <td data-col="container_no" class="sticky-col" style="left:220px;">{{ $c->container_no ?? 'N/A' }}</td>
-    <td data-col="consignee" class="sticky-col" style="left:345px;">{{ $c->oceanImport->dmConsignee->name ?? 'N/A' }}</td>
+    <td data-col="consignee" class="sticky-col" style="left:345px;">{{ $c->oceanImport?->dmConsignee?->name ?? 'N/A' }}</td>
 
     {{-- ===== GENERAL COLS ===== --}}
     <td data-col="remarks">
         <input type="text" class="cell-input" value="{{ $c->remarks ?? '' }}" @change="markChanged({{ $c->id }}, 'remarks', $event.target.value)" placeholder="Take a note...">
     </td>
     <td data-col="stages">
-        <span style="color:#3b82f6;font-weight:600;">{{ $c->oceanImport->ship_mode ?? 'FCL' }}</span>
-        <span style="color:#64748b;font-size:9px;">/{{ $c->containerType->code ?? '' }}</span>
+        <span style="color:#3b82f6;font-weight:600;">{{ $c->oceanImport?->ship_mode ?? 'FCL' }}</span>
+        <span style="color:#64748b;font-size:9px;">/{{ $c->containerType?->code ?? '' }}</span>
     </td>
     <td data-col="hbl">
-        @if($c->oceanImport && $c->oceanImport->hbls->count())
-            {{ $c->oceanImport->hbls->pluck('hbl_no')->join(', ') }}
+        @if($c->oceanImport && $c->oceanImport?->hbls->count())
+            {{ $c->oceanImport?->hbls->pluck('hbl_no')->join(', ') }}
         @else
             --
         @endif
     </td>
-    <td data-col="location">{{ $c->oceanImport->cfsLocation->name ?? ($c->oceanImport->cyLocation->name ?? '--') }}</td>
+    <td data-col="location">{{ $c->oceanImport?->cfsLocation?->name ?? ($c->oceanImport?->cyLocation?->name ?? '--') }}</td>
     <td data-col="rail">{{ $c->rail_start_date ? 'Yes' : 'No' }}</td>
     <td data-col="rail_code">{{ $c->it_no ?? '--' }}</td>
-    <td data-col="etd">{{ $c->oceanImport && $c->oceanImport->etd ? $c->oceanImport->etd->format('m-d-Y') : '--' }}</td>
-    <td data-col="eta">{{ $c->oceanImport && $c->oceanImport->eta ? $c->oceanImport->eta->format('m-d-Y') : '--' }}</td>
+    <td data-col="etd">{{ $c->oceanImport && $c->oceanImport?->etd ? $c->oceanImport?->etd->format('m-d-Y') : '--' }}</td>
+    <td data-col="eta">{{ $c->oceanImport && $c->oceanImport?->eta ? $c->oceanImport?->eta->format('m-d-Y') : '--' }}</td>
     <td data-col="last_edi">{{ $c->updated_at ? $c->updated_at->format('m-d-Y H:i') : '--' }}</td>
 
     {{-- ===== CONTAINER FIELDS ===== --}}
     <td data-col="ppctf">{{ $c->pp_ctf ?? '--' }}</td>
-    <td data-col="tpsz">{{ $c->containerType->code ?? '--' }}</td>
+    <td data-col="tpsz">{{ $c->containerType?->code ?? '--' }}</td>
     <td data-col="seal_no">
         <input type="text" class="cell-input" value="{{ $c->seal_no ?? '' }}" @change="markChanged({{ $c->id }}, 'seal_no', $event.target.value)">
     </td>
@@ -125,7 +125,7 @@
     <td data-col="avail_pickup" style="text-align:center;">
         <input type="checkbox" class="cell-checkbox" {{ $c->is_avail_pickup ? 'checked' : '' }} @change="markChanged({{ $c->id }}, 'is_avail_pickup', $event.target.checked ? 1 : 0)">
     </td>
-    <td data-col="trucker">{{ $c->trucker->name ?? '--' }}</td>
+    <td data-col="trucker">{{ $c->trucker?->name ?? '--' }}</td>
     <td data-col="chassis_days" style="text-align:right;">
         <input type="number" class="cell-input" style="text-align:right;" value="{{ $c->chassis_days ?? '' }}" @change="markChanged({{ $c->id }}, 'chassis_days', $event.target.value)">
     </td>
@@ -146,48 +146,48 @@
     </td>
 
     {{-- ===== SHIPMENT FIELDS ===== --}}
-    <td data-col="mbl_no">{{ $c->oceanImport->mbl_no ?? '--' }}</td>
-    <td data-col="carrier">{{ $c->oceanImport->carrier->name ?? '--' }}</td>
-    <td data-col="vessel">{{ $c->oceanImport->vessel->name ?? '--' }}</td>
-    <td data-col="pol">{{ $c->oceanImport->portOfLoading->name ?? '--' }}</td>
-    <td data-col="pod">{{ $c->oceanImport->portOfDischarge->name ?? '--' }}</td>
-    <td data-col="del">{{ $c->oceanImport->placeOfDelivery->name ?? '--' }}</td>
-    <td data-col="final_dest">{{ $c->oceanImport->finalDestination->name ?? '--' }}</td>
-    <td data-col="mbl_cy">{{ $c->oceanImport->cyLocation->name ?? '--' }}</td>
-    <td data-col="office">{{ $c->oceanImport->office->name ?? '--' }}</td>
-    <td data-col="sales">{{ $c->oceanImport->salesPerson->name ?? '--' }}</td>
-    <td data-col="operator">{{ $c->oceanImport->operator->name ?? '--' }}</td>
-    <td data-col="shipper">{{ $c->oceanImport->dmShipper->name ?? '--' }}</td>
-    <td data-col="notify">{{ $c->oceanImport->dmNotify->name ?? '--' }}</td>
-    <td data-col="customer">{{ $c->oceanImport->dmCustomer->name ?? '--' }}</td>
-    <td data-col="voyage">{{ $c->oceanImport->voyage ?? '--' }}</td>
-    <td data-col="ship_mode">{{ $c->oceanImport->ship_mode ?? '--' }}</td>
-    <td data-col="etb">{{ $c->oceanImport->etb ? $c->oceanImport->etb->format('m-d-Y') : '--' }}</td>
-    <td data-col="obl">{{ $c->oceanImport->obl_type ?? '--' }}</td>
-    <td data-col="freight_term">{{ $c->oceanImport->freight_term ?? '--' }}</td>
-    <td data-col="sales_type">{{ $c->oceanImport->sales_type ?? '--' }}</td>
-    <td data-col="isf_no">{{ $c->oceanImport->isf_no ?? '--' }}</td>
+    <td data-col="mbl_no">{{ $c->oceanImport?->mbl_no ?? '--' }}</td>
+    <td data-col="carrier">{{ $c->oceanImport?->carrier?->name ?? '--' }}</td>
+    <td data-col="vessel">{{ $c->oceanImport?->vessel?->name ?? '--' }}</td>
+    <td data-col="pol">{{ $c->oceanImport?->portOfLoading?->name ?? '--' }}</td>
+    <td data-col="pod">{{ $c->oceanImport?->portOfDischarge?->name ?? '--' }}</td>
+    <td data-col="del">{{ $c->oceanImport?->placeOfDelivery?->name ?? '--' }}</td>
+    <td data-col="final_dest">{{ $c->oceanImport?->finalDestination?->name ?? '--' }}</td>
+    <td data-col="mbl_cy">{{ $c->oceanImport?->cyLocation?->name ?? '--' }}</td>
+    <td data-col="office">{{ $c->oceanImport?->office?->name ?? '--' }}</td>
+    <td data-col="sales">{{ $c->oceanImport?->salesPerson?->name ?? '--' }}</td>
+    <td data-col="operator">{{ $c->oceanImport?->operator?->name ?? '--' }}</td>
+    <td data-col="shipper">{{ $c->oceanImport?->dmShipper?->name ?? '--' }}</td>
+    <td data-col="notify">{{ $c->oceanImport?->dmNotify?->name ?? '--' }}</td>
+    <td data-col="customer">{{ $c->oceanImport?->dmCustomer?->name ?? '--' }}</td>
+    <td data-col="voyage">{{ $c->oceanImport?->voyage ?? '--' }}</td>
+    <td data-col="ship_mode">{{ $c->oceanImport?->ship_mode ?? '--' }}</td>
+    <td data-col="etb">{{ $c->oceanImport?->etb ? $c->oceanImport?->etb->format('m-d-Y') : '--' }}</td>
+    <td data-col="obl">{{ $c->oceanImport?->obl_type ?? '--' }}</td>
+    <td data-col="freight_term">{{ $c->oceanImport?->freight_term ?? '--' }}</td>
+    <td data-col="sales_type">{{ $c->oceanImport?->sales_type ?? '--' }}</td>
+    <td data-col="isf_no">{{ $c->oceanImport?->isf_no ?? '--' }}</td>
     <td data-col="isf_3rd" style="text-align:center;">
-        @if($c->oceanImport && $c->oceanImport->is_isf_3rd_party)
+        @if($c->oceanImport && $c->oceanImport?->is_isf_3rd_party)
             <i class="fa fa-check" style="color:#22c55e;"></i>
         @else
             <i class="fa fa-times" style="color:#ef4444;"></i>
         @endif
     </td>
-    <td data-col="isf_matched">{{ $c->oceanImport && $c->oceanImport->isf_matched_date ? $c->oceanImport->isf_matched_date->format('m-d-Y') : '--' }}</td>
-    <td data-col="entry_no">{{ $c->oceanImport->entry_no ?? '--' }}</td>
-    <td data-col="entry_doc">{{ $c->oceanImport && $c->oceanImport->entry_doc_sent_date ? $c->oceanImport->entry_doc_sent_date->format('m-d-Y') : '--' }}</td>
-    <td data-col="contract_no">{{ $c->oceanImport->contract_no ?? '--' }}</td>
-    <td data-col="receipt">{{ $c->oceanImport->receipt->name ?? '--' }}</td>
-    <td data-col="receipt_etd">{{ $c->oceanImport && $c->oceanImport->receipt_etd ? $c->oceanImport->receipt_etd->format('m-d-Y') : '--' }}</td>
+    <td data-col="isf_matched">{{ $c->oceanImport && $c->oceanImport?->isf_matched_date ? $c->oceanImport?->isf_matched_date->format('m-d-Y') : '--' }}</td>
+    <td data-col="entry_no">{{ $c->oceanImport?->entry_no ?? '--' }}</td>
+    <td data-col="entry_doc">{{ $c->oceanImport && $c->oceanImport?->entry_doc_sent_date ? $c->oceanImport?->entry_doc_sent_date->format('m-d-Y') : '--' }}</td>
+    <td data-col="contract_no">{{ $c->oceanImport?->contract_no ?? '--' }}</td>
+    <td data-col="receipt">{{ $c->oceanImport?->receipt?->name ?? '--' }}</td>
+    <td data-col="receipt_etd">{{ $c->oceanImport && $c->oceanImport?->receipt_etd ? $c->oceanImport?->receipt_etd->format('m-d-Y') : '--' }}</td>
 
     {{-- ===== HBL FIELDS ===== --}}
-    <td data-col="po_no">{{ $c->oceanImport && $c->oceanImport->hbls->count() ? $c->oceanImport->hbls->pluck('po_no')->filter()->join(', ') : '--' }}</td>
-    <td data-col="express_bl">{{ $c->oceanImport && $c->oceanImport->hbls->count() ? $c->oceanImport->hbls->pluck('is_express_bl')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
-    <td data-col="freight_rel">{{ $c->oceanImport && $c->oceanImport->hbls->count() ? $c->oceanImport->hbls->pluck('is_fr_released')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
-    <td data-col="customs_doc">{{ $c->oceanImport && $c->oceanImport->hbls->count() ? $c->oceanImport->hbls->pluck('is_customs_doc')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
-    <td data-col="c_clearance">{{ $c->oceanImport && $c->oceanImport->hbls->count() ? $c->oceanImport->hbls->pluck('is_customs_clear')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
-    <td data-col="delivery_loc">{{ $c->oceanImport && $c->oceanImport->hbls->count() ? $c->oceanImport->hbls->pluck('deliveryLocation.name')->filter()->join(', ') : '--' }}</td>
+    <td data-col="po_no">{{ $c->oceanImport && $c->oceanImport?->hbls->count() ? $c->oceanImport?->hbls->pluck('po_no')->filter()->join(', ') : '--' }}</td>
+    <td data-col="express_bl">{{ $c->oceanImport && $c->oceanImport?->hbls->count() ? $c->oceanImport?->hbls->pluck('is_express_bl')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
+    <td data-col="freight_rel">{{ $c->oceanImport && $c->oceanImport?->hbls->count() ? $c->oceanImport?->hbls->pluck('is_fr_released')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
+    <td data-col="customs_doc">{{ $c->oceanImport && $c->oceanImport?->hbls->count() ? $c->oceanImport?->hbls->pluck('is_customs_doc')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
+    <td data-col="c_clearance">{{ $c->oceanImport && $c->oceanImport?->hbls->count() ? $c->oceanImport?->hbls->pluck('is_customs_clear')->map(fn($v) => $v ? 'Yes' : 'No')->join(', ') : '--' }}</td>
+    <td data-col="delivery_loc">{{ $c->oceanImport && $c->oceanImport?->hbls->count() ? $c->oceanImport?->hbls->pluck('deliveryLocation.name')->filter()->join(', ') : '--' }}</td>
 
 </tr>
 @empty
