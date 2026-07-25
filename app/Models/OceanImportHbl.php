@@ -70,6 +70,11 @@ class OceanImportHbl extends Model
         'is_rail' => 'boolean',
     ];
 
+    public function getIsHoldAttribute()
+    {
+        return $this->oceanImport->is_hold ?? false;
+    }
+
     public function oceanImport() { return $this->belongsTo(OceanImport::class); }
     public function customer() { return $this->belongsTo(TradePartner::class, 'customer_id'); }
     public function shipper() { return $this->belongsTo(TradePartner::class, 'shipper_id'); }

@@ -305,10 +305,10 @@
                 </div>
                 <div class="actions" style="display:flex;gap:4px;position:relative;align-items:center;">
                     <div x-show="hasChanges" x-transition style="display:flex;gap:4px;margin-right:8px;border-right:1px solid #e2e8f0;padding-right:8px;">
-                        <button type="button" class="btn-action-round" style="background:#ef4444;color:white;border:none;" @click="cancelChanges()" title="Cancel Changes">
+                        <button type="button" class="btn-action-round red-btn" @click="cancelChanges()" title="Cancel Changes">
                             <i class="fa fa-times"></i> Cancel
                         </button>
-                        <button type="button" class="btn-action-round" style="background:#22c55e;color:white;border:none;" @click="saveChanges($event)" title="Save Changes">
+                        <button type="button" class="btn-action-round green-btn" @click="saveChanges($event)" title="Save Changes">
                             <i class="fa fa-save"></i> Save
                         </button>
                     </div>

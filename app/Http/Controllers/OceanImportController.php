@@ -162,8 +162,15 @@ class OceanImportController extends Controller
             }
 
             $oceanImport = $source->replicate();
+            
             // Generate unique file_no with timestamp + random string to prevent duplicates
-            $oceanImport->file_no = 'MOI-' . now()->format('ymdHis') . '-' . strtoupper(substr(uniqid(), -6));
+            $fileAttempt = 0;
+            do {
+                $proposedFileNo = 'MOI-' . now()->format('ymdHis') . ($fileAttempt > 0 ? ('-' . rand(100, 999)) : ('-' . strtoupper(substr(uniqid(), -4))));
+                $fileAttempt++;
+            } while (OceanImport::where('file_no', $proposedFileNo)->exists());
+            
+            $oceanImport->file_no = $proposedFileNo;
             $oceanImport->mbl_no = null;
             $oceanImport->save();
 
@@ -171,17 +178,18 @@ class OceanImportController extends Controller
                 $clonedContainer = $container->replicate();
                 $clonedContainer->ocean_import_id = $oceanImport->id;
                 
-                // Generate unique container number
-                $baseContainerNo = $container->container_no;
-                $uniqueSuffix = '-Copy-' . now()->format('YmdHis');
-                $clonedContainer->container_no = $baseContainerNo . $uniqueSuffix;
+                $cleanContainerNo = preg_replace('/(-Copy(-\d+)?)+$/i', '', $container->container_no ?? '');
+                if (!$cleanContainerNo) $cleanContainerNo = 'CNTR';
                 
-                // If too long, truncate
-                if (strlen($clonedContainer->container_no) > 255) {
+                $containerAttempt = 0;
+                do {
+                    $uniqueSuffix = '-Copy-' . now()->format('YmdHis') . ($containerAttempt > 0 ? ('-' . rand(100, 999)) : '');
                     $maxBaseLength = 255 - strlen($uniqueSuffix);
-                    $clonedContainer->container_no = substr($baseContainerNo, 0, $maxBaseLength) . $uniqueSuffix;
-                }
+                    $proposedContainerNo = (strlen($cleanContainerNo) > $maxBaseLength) ? substr($cleanContainerNo, 0, $maxBaseLength) . $uniqueSuffix : $cleanContainerNo . $uniqueSuffix;
+                    $containerAttempt++;
+                } while (\App\Models\OceanImportContainer::where('container_no', $proposedContainerNo)->where('ocean_import_id', $oceanImport->id)->exists());
                 
+                $clonedContainer->container_no = $proposedContainerNo;
                 $clonedContainer->save();
             }
 
@@ -189,17 +197,22 @@ class OceanImportController extends Controller
                 $clonedHbl = $hbl->replicate();
                 $clonedHbl->ocean_import_id = $oceanImport->id;
                 
-                // Generate unique HBL number by adding timestamp
-                $baseHblNo = $hbl->hbl_no;
-                $uniqueSuffix = ' - Copy ' . now()->format('YmdHis');
-                $clonedHbl->hbl_no = $baseHblNo . $uniqueSuffix;
-                
-                // If still too long, truncate the base and add suffix
-                if (strlen($clonedHbl->hbl_no) > 255) {
-                    $maxBaseLength = 255 - strlen($uniqueSuffix);
-                    $clonedHbl->hbl_no = substr($baseHblNo, 0, $maxBaseLength) . $uniqueSuffix;
+                // Clean base HBL number by stripping any accumulated "- Copy ..." suffixes
+                $cleanBaseHblNo = preg_replace('/(\s*-\s*Copy(\s+\d+)?)+$/i', '', $hbl->hbl_no ?? '');
+                if (!$cleanBaseHblNo) {
+                    $cleanBaseHblNo = 'HBL-' . rand(1000, 9999);
                 }
-                
+
+                // Loop check to guarantee absolute uniqueness in DB without constraint violation
+                $hblAttempt = 0;
+                do {
+                    $uniqueSuffix = ' - Copy ' . now()->format('YmdHis') . ($hblAttempt > 0 ? ('-' . rand(100, 999)) : '');
+                    $maxBaseLength = 255 - strlen($uniqueSuffix);
+                    $proposedHblNo = (strlen($cleanBaseHblNo) > $maxBaseLength) ? substr($cleanBaseHblNo, 0, $maxBaseLength) . $uniqueSuffix : $cleanBaseHblNo . $uniqueSuffix;
+                    $hblAttempt++;
+                } while (OceanImportHbl::where('hbl_no', $proposedHblNo)->exists());
+
+                $clonedHbl->hbl_no = $proposedHblNo;
                 $clonedHbl->save();
 
                 foreach ($hbl->containers as $container) {

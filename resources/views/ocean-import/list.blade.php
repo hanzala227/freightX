@@ -547,14 +547,17 @@
     /* ================================================================
        COPY — navigate to create page with ?copy=id
     ================================================================ */
+    var _isCopying = false;
     function copySelected() {
+        if (_isCopying) return;
         const checked = [...document.querySelectorAll('.row-check:checked')];
         if (checked.length !== 1) return;
+        _isCopying = true;
+        const btn = document.getElementById('btn-copy');
+        if (btn) btn.disabled = true;
         const row = checked[0].closest('tr');
         showToast('info', 'Copying shipment: ' + (row.dataset.file || '') + ' ...');
-        setTimeout(() => {
-            window.location.href = '{{ route("ocean-import.create") }}?copy=' + row.dataset.id;
-        }, 600);
+        window.location.href = '{{ route("ocean-import.create") }}?copy=' + row.dataset.id;
     }
 
     /* ================================================================

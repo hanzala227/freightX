@@ -428,8 +428,13 @@
     }
 
     /* ── COPY ── */
+    var _isCopying = false;
     function copySelected() {
+        if (_isCopying) return;
         var ids = getSelectedIds(); if (ids.length!==1) return;
+        _isCopying = true;
+        var cp = document.getElementById('btn-copy'); if (cp) cp.disabled = true;
+        showToast('info', 'Copying shipment...');
         window.location.href = '{{ route("air-import.create") }}?copy='+ids[0];
     }
 

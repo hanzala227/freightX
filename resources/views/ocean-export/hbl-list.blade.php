@@ -251,11 +251,11 @@
 
             {{-- ── PAGINATION ── --}}
             <div class="portlet-tool bottom">
-                <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
-                    <div id="pagination-container">{{ $hbls->links() }}</div>
-                    <div style="font-size:10px;color:#64748b;">
-                        Showing <span id="stat-first">{{ $hbls->firstItem() ?? 0 }}</span> – <span id="stat-last">{{ $hbls->lastItem() ?? 0 }}</span> of <span id="stat-total">{{ $hbls->total() }}</span> records
-                    </div>
+                <div style="font-size:10px;color:#64748b;">
+                    Showing <span id="stat-first">{{ $hbls->firstItem() ?? 0 }}</span> – <span id="stat-last">{{ $hbls->lastItem() ?? 0 }}</span> of <span id="stat-total">{{ $hbls->total() }}</span> records
+                </div>
+                <div id="pagination-container">
+                    {{ $hbls->appends(request()->query())->links('vendor.pagination.custom') }}
                 </div>
             </div>
 

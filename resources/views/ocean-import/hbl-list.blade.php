@@ -485,11 +485,11 @@
 
             {{-- ── PAGINATION ── --}}
             <div class="portlet-tool bottom">
-                <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
-                    <div id="pagination-container">{{ $hbls->links() }}</div>
-                    <div style="font-size:10px;color:#64748b;">
-                        Showing <span id="stat-first">{{ $hbls->firstItem() ?? 0 }}</span> – <span id="stat-last">{{ $hbls->lastItem() ?? 0 }}</span> of <span id="stat-total">{{ $hbls->total() }}</span> records
-                    </div>
+                <div style="font-size:10px;color:#64748b;">
+                    Showing <span id="stat-first">{{ $hbls->firstItem() ?? 0 }}</span> – <span id="stat-last">{{ $hbls->lastItem() ?? 0 }}</span> of <span id="stat-total">{{ $hbls->total() }}</span> records
+                </div>
+                <div id="pagination-container">
+                    {{ $hbls->appends(request()->query())->links('vendor.pagination.custom') }}
                 </div>
             </div>
 
@@ -587,8 +587,17 @@
             body: JSON.stringify({ ids: [id], type: 'hbl' })
         }).then(function(r) { return r.json(); }).then(function(data) {
             if (data.success) {
-                if (locked) { el.classList.remove('fa-lock'); el.classList.add('fa-unlock'); el.style.color = '#22c55e';
-                } else { el.classList.remove('fa-unlock'); el.classList.add('fa-lock'); el.style.color = '#94a3b8'; }
+                if (locked) {
+                    el.classList.remove('fa-lock');
+                    el.classList.add('fa-unlock');
+                    el.style.color = '#22c55e';
+                    el.title = 'Unlocked';
+                } else {
+                    el.classList.remove('fa-unlock');
+                    el.classList.add('fa-lock');
+                    el.style.color = '#94a3b8';
+                    el.title = 'Locked';
+                }
                 showToast('success', locked ? 'HBL unlocked' : 'HBL locked');
             } else { showToast('error', data.message || 'Failed to update'); }
         }).catch(function() { showToast('error', 'Failed to update lock status'); });
@@ -601,14 +610,19 @@
     /* ================================================================
        COPY, DELETE, BLOCK/UNBLOCK
     ================================================================ */
+    var _isCopying = false;
     function copySelected() {
+        if (_isCopying) return;
         var checked = document.querySelectorAll('.row-check:checked');
         if (checked.length !== 1) return;
         var row = checked[0].closest('tr');
         var shipmentId = row?.dataset?.shipmentId;
         if (!shipmentId) { showToast('error', 'Cannot determine shipment for this HBL.'); return; }
+        _isCopying = true;
+        var btn = document.getElementById('btn-copy');
+        if (btn) btn.disabled = true;
         showToast('info', 'Duplicating shipment...');
-        setTimeout(function() { window.location.href = '/ocean-import/create?copy=' + shipmentId; }, 600);
+        window.location.href = '/ocean-import/create?copy=' + shipmentId;
     }
     function confirmDelete() {
         var ids = getSelectedIds();
