@@ -12,9 +12,17 @@ class Charge extends Model
 
     protected $fillable = [
         'chargeable_type', 'chargeable_id', 'type', 'charge_code', 
-        'charge_name', 'bill_to_id', 'vendor_id', 'pc', 'qty', 'unit', 
+        'charge_name', 'party', 'sal', 'bill_to_id', 'vendor_id', 'pc', 'qty', 'unit', 
         'currency_id', 'rate', 'amount', 'tax_percent', 'tax_amount', 
-        'total_amount', 'is_invoiced', 'invoice_no', 'invoice_date', 'remark'
+        'total_amount', 'is_invoiced', 'invoice_no', 'invoice_date', 'remark',
+        'seal_no2', 'pickup_no', 'cprs_no', 'cnru_no', 'it_no', 'dg', 
+        'temp', 'vent', 'storage_start_date', 'storage_end_date', 
+        'carrier_release', 'yard_location', 'unload_vessel_date', 
+        'gate_in_date', 'rail_start_date', 'pod_eta_date', 'available_pickup', 
+        'weight_lb', 'appt_date', 'trucker_id', 'pickup_date', 'gate_out_date', 
+        'fdest_eta_date', 'eta_door_date', 'ata_door_date', 'measurement_cft', 
+        'container_remarks', 'internal_remarks', 'empty_confirmed_date', 
+        'empty_return_date', 'complete'
     ];
 
     protected $casts = [

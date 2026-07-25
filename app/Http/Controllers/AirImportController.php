@@ -96,11 +96,12 @@ class AirImportController extends Controller
     public function edit(AirImport $airImport)
     {
         $airImport->load([
-            'hbls.customer', 'hbls.shipper', 'hbls.consignee', 
+            'hbls.customer', 'hbls.shipper', 'hbls.consignee',
             'charges.currency', 'documents', 'containers',
             'statusLogs.user', 'office', 'carrier', 'overseaAgent',
             'depPort', 'dstPort', 'operator', 'packageUnit',
-            'incoterm', 'svcTermFrom', 'svcTermTo', 'referredBy'
+            'forwardingAgent', 'acctCarrier',
+            'dmCustomer', 'dmShipper', 'dmConsignee', 'dmNotify', 'dmBillTo', 'dmSalesPerson',
         ]);
         
         $offices = Office::where('is_active', true)->get();
@@ -137,7 +138,12 @@ class AirImportController extends Controller
             ? $airImport->charges->map(fn($c) => [
                 'id' => $c->id,
                 'selected' => false,
+                'expanded' => false,
+                'party' => $c->party ?? 'Custom',
+                'party_name_id' => $c->bill_to_id ?? $c->vendor_id ?? '',
+                'sal' => $c->sal ?? 'Air',
                 'chrg_code' => $c->charge_code,
+                'charge_name' => $c->charge_name ?? $c->charge_code,
                 'currency' => $c->currency->code ?? 'USD',
                 'rate' => $c->rate,
                 'qty' => $c->qty,
@@ -148,6 +154,38 @@ class AirImportController extends Controller
                 'vat' => $c->tax_percent ?? 0,
                 'roe' => 1.0,
                 'inv_no' => $c->invoice_no ?? '',
+                'financial_date' => $c->post_date ? $c->post_date->format('Y-m-d') : date('Y-m-d'),
+                'seal_no2' => $c->seal_no2 ?? '',
+                'pickup_no' => $c->pickup_no ?? '',
+                'cprs_no' => $c->cprs_no ?? '',
+                'cnru_no' => $c->cnru_no ?? '',
+                'it_no' => $c->it_no ?? '',
+                'dg' => $c->dg ?? 'No',
+                'temp' => $c->temp ?? '',
+                'vent' => $c->vent ?? '',
+                'storage_start_date' => $c->storage_start_date ? \Carbon\Carbon::parse($c->storage_start_date)->format('Y-m-d') : '',
+                'storage_end_date' => $c->storage_end_date ? \Carbon\Carbon::parse($c->storage_end_date)->format('Y-m-d') : '',
+                'carrier_release' => (bool)$c->carrier_release,
+                'yard_location' => $c->yard_location ?? '',
+                'unload_vessel_date' => $c->unload_vessel_date ? \Carbon\Carbon::parse($c->unload_vessel_date)->format('Y-m-d') : '',
+                'gate_in_date' => $c->gate_in_date ? \Carbon\Carbon::parse($c->gate_in_date)->format('Y-m-d') : '',
+                'rail_start_date' => $c->rail_start_date ? \Carbon\Carbon::parse($c->rail_start_date)->format('Y-m-d') : '',
+                'pod_eta_date' => $c->pod_eta_date ? \Carbon\Carbon::parse($c->pod_eta_date)->format('Y-m-d') : '',
+                'available_pickup' => (bool)$c->available_pickup,
+                'weight_lb' => $c->weight_lb ?? '',
+                'appt_date' => $c->appt_date ? \Carbon\Carbon::parse($c->appt_date)->format('Y-m-d') : '',
+                'trucker_id' => $c->trucker_id ?? '',
+                'pickup_date' => $c->pickup_date ? \Carbon\Carbon::parse($c->pickup_date)->format('Y-m-d') : '',
+                'gate_out_date' => $c->gate_out_date ? \Carbon\Carbon::parse($c->gate_out_date)->format('Y-m-d') : '',
+                'fdest_eta_date' => $c->fdest_eta_date ? \Carbon\Carbon::parse($c->fdest_eta_date)->format('Y-m-d') : '',
+                'eta_door_date' => $c->eta_door_date ? \Carbon\Carbon::parse($c->eta_door_date)->format('Y-m-d') : '',
+                'ata_door_date' => $c->ata_door_date ? \Carbon\Carbon::parse($c->ata_door_date)->format('Y-m-d') : '',
+                'measurement_cft' => $c->measurement_cft ?? '',
+                'remarks' => $c->container_remarks ?? '',
+                'internal_remarks' => $c->internal_remarks ?? '',
+                'empty_confirmed_date' => $c->empty_confirmed_date ? \Carbon\Carbon::parse($c->empty_confirmed_date)->format('Y-m-d') : '',
+                'empty_return_date' => $c->empty_return_date ? \Carbon\Carbon::parse($c->empty_return_date)->format('Y-m-d') : '',
+                'complete' => (bool)$c->complete,
             ])
             : collect();
         

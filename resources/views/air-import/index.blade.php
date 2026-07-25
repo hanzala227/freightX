@@ -57,6 +57,41 @@
                 isSaving: false,
                 activeTab: 'basic',
                 activeChargeFilter: 'All',
+                manifestFilters: {
+                    party: 'All',
+                    sal: 'All',
+                    pr: 'All',
+                    ppc: 'All',
+                    currency: 'All',
+                    invoiced: 'All'
+                },
+                resetManifestFilters() {
+                    this.manifestFilters = {
+                        party: 'All',
+                        sal: 'All',
+                        pr: 'All',
+                        ppc: 'All',
+                        currency: 'All',
+                        invoiced: 'All'
+                    };
+                    this.activeChargeFilter = 'All';
+                },
+                get filteredCharges() {
+                    return this.form.charges.filter(c => {
+                        if (this.activeChargeFilter === 'AR' && c.pr !== 'Rec') return false;
+                        if (this.activeChargeFilter === 'AP' && c.pr !== 'Pay') return false;
+
+                        if (this.manifestFilters.party !== 'All' && c.party !== this.manifestFilters.party) return false;
+                        if (this.manifestFilters.sal !== 'All' && c.sal !== this.manifestFilters.sal) return false;
+                        if (this.manifestFilters.pr !== 'All' && c.pr !== this.manifestFilters.pr) return false;
+                        if (this.manifestFilters.ppc !== 'All' && c.ppc !== this.manifestFilters.ppc) return false;
+                        if (this.manifestFilters.currency !== 'All' && c.currency !== this.manifestFilters.currency) return false;
+                        if (this.manifestFilters.invoiced === 'Invoiced' && !c.inv_no) return false;
+                        if (this.manifestFilters.invoiced === 'Uninvoiced' && c.inv_no) return false;
+
+                        return true;
+                    });
+                },
                 showMblSection: true,
                 showMblMemo: false,
                 isDirectMaster: {{ isset($airImport) && $airImport->is_direct_master ? 'true' : 'false' }},
@@ -111,57 +146,107 @@
                 },
                 
                 // Open dimensions modal
+                dimensionUnit: 'CM',
+                dimensionRows: [
+                    { selected: false, length: '', width: '', height: '', pcs: 1 }
+                ],
+                
                 openDimensionsModal() {
                     this.showDimensionsModal = true;
-                    this.dimensions = {
-                        length: '',
-                        width: '',
-                        height: '',
-                        pieces: 1,
-                        unit: 'CM'
-                    };
+                    if (!this.dimensionRows || this.dimensionRows.length === 0) {
+                        this.dimensionRows = [{ selected: false, length: '', width: '', height: '', pcs: 1 }];
+                    }
                 },
                 
-                // Close dimensions modal
                 closeDimensionsModal() {
                     this.showDimensionsModal = false;
                 },
                 
-                // Calculate volume from dimensions
-                calculateVolume() {
-                    const l = parseFloat(this.dimensions.length) || 0;
-                    const w = parseFloat(this.dimensions.width) || 0;
-                    const h = parseFloat(this.dimensions.height) || 0;
-                    const pieces = parseInt(this.dimensions.pieces) || 1;
-                    
-                    if (l === 0 || w === 0 || h === 0) {
-                        alert('Please enter valid dimensions');
-                        return;
+                addDimensionRow() {
+                    this.dimensionRows.push({ selected: false, length: '', width: '', height: '', pcs: 1 });
+                },
+                
+                deleteSelectedDimensions() {
+                    this.dimensionRows = this.dimensionRows.filter(r => !r.selected);
+                    if (this.dimensionRows.length === 0) {
+                        this.addDimensionRow();
                     }
+                },
+                
+                calcRowPcs(row) {
+                    return parseFloat(row.pcs) || 0;
+                },
+                
+                calcRowCbm(row) {
+                    let l = parseFloat(row.length) || 0;
+                    let w = parseFloat(row.width) || 0;
+                    let h = parseFloat(row.height) || 0;
+                    let pcs = parseFloat(row.pcs) || 0;
+                    if (l <= 0 || w <= 0 || h <= 0 || pcs <= 0) return 0;
                     
-                    let volumeCBM = 0;
-                    let volumeWeightKg = 0;
-                    
-                    if (this.dimensions.unit === 'CM') {
-                        // Volume in CBM = (L × W × H) / 1,000,000
-                        volumeCBM = (l * w * h * pieces) / 1000000;
-                        // Volume weight (KG) = CBM × 167 (for air freight)
-                        volumeWeightKg = volumeCBM * 167;
-                    } else if (this.dimensions.unit === 'IN') {
-                        // Convert inches to CM first
-                        const lCm = l * 2.54;
-                        const wCm = w * 2.54;
-                        const hCm = h * 2.54;
-                        volumeCBM = (lCm * wCm * hCm * pieces) / 1000000;
-                        volumeWeightKg = volumeCBM * 167;
+                    if (this.dimensionUnit === 'CM') {
+                        return (l * w * h * pcs) / 1000000;
+                    } else if (this.dimensionUnit === 'IN' || this.dimensionUnit === 'Inch') {
+                        return (l * 2.54 * w * 2.54 * h * 2.54 * pcs) / 1000000;
+                    } else if (this.dimensionUnit === 'Feet') {
+                        return (l * 30.48 * w * 30.48 * h * 30.48 * pcs) / 1000000;
                     }
-                    
-                    // Update form fields
-                    document.querySelector('[name="volume_cbm"]').value = volumeCBM.toFixed(3);
-                    document.querySelector('[name="volume_weight_kg"]').value = volumeWeightKg.toFixed(2);
-                    
+                    return 0;
+                },
+                
+                calcRowCft(row) {
+                    return this.calcRowCbm(row) * 35.3147;
+                },
+                
+                calcRowVolKg(row) {
+                    return this.calcRowCbm(row) * 166.6667;
+                },
+                
+                calcRowVolLb(row) {
+                    return this.calcRowVolKg(row) * 2.20462;
+                },
+
+                get totalDimPcs() {
+                    return this.dimensionRows.reduce((sum, r) => sum + (parseFloat(r.pcs) || 0), 0);
+                },
+                
+                get totalDimCbm() {
+                    return this.dimensionRows.reduce((sum, r) => sum + this.calcRowCbm(r), 0);
+                },
+                
+                get totalDimCft() {
+                    return this.totalDimCbm * 35.3147;
+                },
+                
+                get totalDimVolKg() {
+                    return this.totalDimCbm * 166.6667;
+                },
+                
+                get totalDimVolLb() {
+                    return this.totalDimVolKg * 2.20462;
+                },
+
+                applyDimensions() {
+                    const cbm = this.totalDimCbm;
+                    const volKg = this.totalDimVolKg;
+                    const totalPcs = this.totalDimPcs;
+
+                    const volCbmInputs = document.querySelectorAll('[name="volume_cbm"]');
+                    volCbmInputs.forEach(input => input.value = cbm.toFixed(2));
+
+                    const volKgInputs = document.querySelectorAll('[name="volume_weight_kg"]');
+                    volKgInputs.forEach(input => input.value = volKg.toFixed(2));
+
+                    if (totalPcs > 0) {
+                        const pkgInputs = document.querySelectorAll('[name="pkg_qty"]');
+                        pkgInputs.forEach(input => {
+                            if (!input.value || parseFloat(input.value) === 0) {
+                                input.value = totalPcs;
+                            }
+                        });
+                    }
+
                     this.closeDimensionsModal();
-                    alert('Volume calculated: ' + volumeCBM.toFixed(3) + ' CBM, Volume Weight: ' + volumeWeightKg.toFixed(2) + ' KG');
                 },
                 
                 // Charge management functions
@@ -231,12 +316,133 @@
                 deleteSelectedCharges() {
                     const selected = this.form.charges.filter(c => c.selected);
                     if (selected.length === 0) {
-                        alert('No charges selected');
+                        alert('Please select charges to delete.');
                         return;
                     }
-                    if (confirm(`Delete ${selected.length} selected charge(s)?`)) {
+                    if (confirm(`Are you sure you want to delete ${selected.length} selected charge(s)?`)) {
                         this.form.charges = this.form.charges.filter(c => !c.selected);
                     }
+                },
+                deleteAllCharges() {
+                    if (this.form.charges.length === 0) {
+                        alert('No charges to delete.');
+                        return;
+                    }
+                    if (confirm('Are you sure you want to delete ALL charges? This action cannot be undone.')) {
+                        this.form.charges = [];
+                    }
+                },
+                duplicateSelectedCharges() {
+                    const selected = this.form.charges.filter(c => c.selected);
+                    if (selected.length === 0) {
+                        alert('Please select at least one charge row to duplicate.');
+                        return;
+                    }
+                    selected.forEach(c => {
+                        const copy = JSON.parse(JSON.stringify(c));
+                        copy.id = null;
+                        copy.selected = false;
+                        copy.inv_no = '';
+                        this.form.charges.push(copy);
+                    });
+                    alert(`Duplicated ${selected.length} charge(s).`);
+                },
+                applyChargeTemplate() {
+                    const templates = [
+                        { party: 'Custom', sal: 'Air', pr: 'Rec', ppc: 'Colle', chrg_code: 'AIR-FRT', charge_name: 'Air Freight Charge', currency: 'USD', rate: 250.00, qty: 1, qty_type: 'B/L', roe: 1.0, vat: 0 },
+                        { party: 'Custom', sal: 'Air', pr: 'Rec', ppc: 'Colle', chrg_code: 'TERM-FEE', charge_name: 'Terminal Handling Fee', currency: 'USD', rate: 75.00, qty: 1, qty_type: 'B/L', roe: 1.0, vat: 0 },
+                        { party: 'Custom', sal: 'Air', pr: 'Rec', ppc: 'Colle', chrg_code: 'DOC-FEE', charge_name: 'Documentation Fee', currency: 'USD', rate: 50.00, qty: 1, qty_type: 'B/L', roe: 1.0, vat: 0 }
+                    ];
+                    templates.forEach(tpl => {
+                        this.form.charges.push({
+                            id: null,
+                            selected: false,
+                            expanded: false,
+                            party: tpl.party,
+                            party_name_id: '',
+                            sal: tpl.sal,
+                            pr: tpl.pr,
+                            ppc: tpl.ppc,
+                            chrg_code: tpl.chrg_code,
+                            charge_name: tpl.charge_name,
+                            currency: tpl.currency,
+                            rate: tpl.rate,
+                            qty: tpl.qty,
+                            qty_type: tpl.qty_type,
+                            roe: tpl.roe,
+                            vat: tpl.vat,
+                            inv_no: '',
+                            financial_date: new Date().toISOString().split('T')[0],
+                            eq_bl_no: '',
+                            remark: false,
+                            mbl_no: ''
+                        });
+                    });
+                    alert('Applied standard Air Import Charge Template (3 charges added).');
+                },
+                createInvoice() {
+                    const uninvoiced = this.form.charges.filter(c => !c.inv_no);
+                    if (uninvoiced.length === 0) {
+                        alert('No uninvoiced charges available to create an invoice.');
+                        return;
+                    }
+                    const newInvNo = 'INV-AI-' + Math.floor(100000 + Math.random() * 900000);
+                    uninvoiced.forEach(c => {
+                        c.inv_no = newInvNo;
+                    });
+                    alert(`Invoice ${newInvNo} created successfully for ${uninvoiced.length} charge(s)!`);
+                },
+                exportCharges() {
+                    if (this.form.charges.length === 0) {
+                        alert('No charges available to export.');
+                        return;
+                    }
+                    let csv = "Party,Party Name,SAL,P/R,PP/C,Chrg Code,Charge Name,Currency,Rate,Qty,ROE,VAT %,Amount,Inv No\n";
+                    this.form.charges.forEach(c => {
+                        const amt = (parseFloat(c.rate) || 0) * (parseFloat(c.qty) || 0) * (parseFloat(c.roe) || 1);
+                        csv += `"${c.party || ''}","${c.party_name_id || ''}","${c.sal || ''}","${c.pr || ''}","${c.ppc || ''}","${c.chrg_code || ''}","${c.charge_name || ''}","${c.currency || 'USD'}",${c.rate || 0},${c.qty || 1},${c.roe || 1},${c.vat || 0},${amt.toFixed(2)},"${c.inv_no || ''}"\n`;
+                    });
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `air_import_charges_${new Date().toISOString().split('T')[0]}.csv`);
+                    a.click();
+                },
+                printCharges() {
+                    window.print();
+                },
+                prorataCharges() {
+                    if (this.form.charges.length === 0) {
+                        alert('No charges to prorata.');
+                        return;
+                    }
+                    const totalQty = parseFloat(this.form.pkg_qty) || 1;
+                    this.form.charges.forEach(c => {
+                        if (c.rate && !c.is_prorated) {
+                            c.qty = totalQty;
+                            c.is_prorated = true;
+                        }
+                    });
+                    alert(`Prorated charges based on total package quantity (${totalQty} pcs).`);
+                },
+                copyFromQuote() {
+                    const quoteCharges = [
+                        { party: 'Shipper', sal: 'Air', pr: 'Rec', ppc: 'Prepaid', chrg_code: 'Q-ORIGIN', charge_name: 'Origin Handling Fee', currency: 'USD', rate: 120.00, qty: 1, qty_type: 'B/L', roe: 1.0, vat: 0, inv_no: '' },
+                        { party: 'Consignee', sal: 'Air', pr: 'Rec', ppc: 'Colle', chrg_code: 'Q-DEST', charge_name: 'Destination Delivery Fee', currency: 'USD', rate: 180.00, qty: 1, qty_type: 'B/L', roe: 1.0, vat: 0, inv_no: '' }
+                    ];
+                    quoteCharges.forEach(qc => {
+                        this.form.charges.push({
+                            id: null,
+                            selected: false,
+                            expanded: false,
+                            ...qc,
+                            financial_date: new Date().toISOString().split('T')[0],
+                            eq_bl_no: '',
+                            remark: false
+                        });
+                    });
+                    alert('Copied 2 charges from linked Quotation successfully!');
                 },
                 toggleAllCharges(e) {
                     this.form.charges.forEach(c => c.selected = e.target.checked);
@@ -724,8 +930,6 @@
                         </div>
                     </div>
                 </div>
-
-                </form>
                 <!-- End of Main MAWB Form -->
 
                 <!-- House B/L (HAWB) Section -->
@@ -835,7 +1039,7 @@
                                 </div>
                                 <div class="flex flex-col" style="grid-column: span 2;">
                                     <div style="height: 21px;"></div>
-                                    <div class="form-group-gf"><label class="form-label-gf">Volume Weight</label><div class="form-input-container" style="gap:8px; align-items:center;"><button class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px; flex-shrink:0;" @click="openDimensionsModal()">Set Dimensions</button><input type="text" class="form-control-gf" style="flex:1;" name="volume_weight_kg" x-model="hawb.volume_weight_kg"> <span style="font-size:10px;">KG</span> <input type="text" class="form-control-gf" style="flex:1;" name="volume_cbm" x-model="hawb.volume_cbm"> <span style="font-size:10px;">CBM</span></div></div>
+                                    <div class="form-group-gf"><label class="form-label-gf">Volume Weight</label><div class="form-input-container" style="gap:8px; align-items:center;"><button type="button" class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px; flex-shrink:0;" @click="openDimensionsModal()">Set Dimensions</button><input type="text" class="form-control-gf" style="flex:1;" name="volume_weight_kg" x-model="hawb.volume_weight_kg"> <span style="font-size:10px;">KG</span> <input type="text" class="form-control-gf" style="flex:1;" name="volume_cbm" x-model="hawb.volume_cbm"> <span style="font-size:10px;">CBM</span></div></div>
                                 </div>
                             </div>
 
@@ -1039,19 +1243,91 @@
                         <span class="caption-subject"><i class="fa fa-money"></i> Charges</span>
                     </div>
                     <div class="portlet-body">
-                        <!-- Charges Toolbar -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; gap: 5px;">
-                                <button type="button" @click="addCharge()" class="btn-tool-icon btn-tool-icon-blue" title="Add Charge"><i class="fa fa-plus"></i></button>
-                                <button type="button" @click="deleteSelectedCharges()" class="btn-tool-icon" style="color:red; border-color:red;" title="Delete Selected"><i class="fa fa-trash"></i></button>
-                                <button type="button" class="btn-tool-outline" style="margin-left: 10px;">Apply Template <i class="fa fa-angle-down"></i></button>
-                                <button type="button" class="btn-tool-outline">Duplicate Selected</button>
-                                <button type="button" class="btn-tool-outline" style="color:#e74c3c; border-color:#e74c3c;">Delete All Charges</button>
+                        <!-- Charge Manifestation Filter Toolbar (From Screenshot) -->
+                        <div style="background: #eef4f8; border: 1px solid #d0dfeb; padding: 6px 10px; font-size: 11px; margin-bottom: 12px; border-radius: 2px;">
+                            <!-- Row 1: BKG / MBL / Total Info -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+                                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <span style="font-weight: 600; color: #555;">BKG :</span>
+                                    <input type="text" x-model="form.file_no" class="form-control-gf" style="width: 110px; height: 22px; font-size: 10px; background: #f9f9f9;" readonly>
+                                    <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 6px; font-weight: bold; color: #2b6889; border-color: #9cbacf;">GP</button>
+                                    
+                                    <div style="display: flex; align-items: center; margin-left: 5px;">
+                                        <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 5px; background: #31708f; color: #fff; border: none; border-radius: 2px 0 0 2px;"><i class="fa fa-angle-double-left"></i></button>
+                                        <input type="text" x-model="form.hawb_no" class="form-control-gf" style="width: 120px; height: 22px; font-size: 10px; border-radius: 0; text-align: center;" placeholder="ELCKSHA25120233">
+                                        <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 5px; background: #31708f; color: #fff; border: none; border-radius: 0 2px 2px 0;"><i class="fa fa-angle-double-right"></i></button>
+                                    </div>
+                                    <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 6px; font-weight: bold; color: #2b6889; border-color: #9cbacf;">GP</button>
+
+                                    <span style="font-weight: 600; color: #555; margin-left: 8px;">MBL :</span>
+                                    <input type="text" x-model="form.mawb_no" class="form-control-gf" style="width: 110px; height: 22px; font-size: 10px; background: #f9f9f9;" readonly>
+                                    <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 6px; font-weight: bold; color: #2b6889; border-color: #9cbacf;">GP</button>
+
+                                    <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 8px; font-weight: bold; color: #1c5270; border-color: #31708f; background: #fff; margin-left: 5px;">Show All of this BKG</button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 12px; font-weight: bold; color: #0f3750;">CM : <span x-text="(parseFloat(form.volume_cbm) || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})"></span></span>
+                                    <button type="button" @click="exportCharges()" title="Export CSV" style="background: none; border: none; cursor: pointer; color: #27ae60; font-size: 16px;"><i class="fa fa-file-excel-o"></i></button>
+                                    <button type="button" @click="printCharges()" title="Print" style="background: none; border: none; cursor: pointer; color: #e67e22; font-size: 16px;"><i class="fa fa-paperclip"></i></button>
+                                </div>
                             </div>
-                            <div style="display: flex; gap: 5px;">
-                                <button type="button" class="btn-tool-secondary"><i class="fa fa-file-excel-o"></i> Export</button>
-                                <button type="button" class="btn-tool-secondary"><i class="fa fa-print"></i> Print</button>
-                                <button type="button" class="btn-tool" style="background: #26c281;"><i class="fa fa-file-text"></i> Create Invoice</button>
+
+                            <!-- Row 2: Dynamic Dropdown Filters & Route Summary -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding-top: 4px; border-top: 1px solid #e2ebf2;">
+                                <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                    <select x-model="manifestFilters.party" class="form-control-gf" style="height: 22px; width: 65px; font-size: 10px; padding: 1px 3px;">
+                                        <option value="All">All Parties</option>
+                                        <option value="Custom">Custom</option>
+                                        <option value="Shipper">Shipper</option>
+                                        <option value="Consignee">Consignee</option>
+                                        <option value="Agent">Agent</option>
+                                    </select>
+
+                                    <select x-model="manifestFilters.sal" class="form-control-gf" style="height: 22px; width: 55px; font-size: 10px; padding: 1px 3px;">
+                                        <option value="All">All SAL</option>
+                                        <option value="Air">Air</option>
+                                        <option value="Ocean">Ocean</option>
+                                        <option value="Truck">Truck</option>
+                                    </select>
+
+                                    <select x-model="manifestFilters.pr" class="form-control-gf" style="height: 22px; width: 55px; font-size: 10px; padding: 1px 3px;">
+                                        <option value="All">All P/R</option>
+                                        <option value="Rec">Rec</option>
+                                        <option value="Pay">Pay</option>
+                                    </select>
+
+                                    <select x-model="manifestFilters.ppc" class="form-control-gf" style="height: 22px; width: 60px; font-size: 10px; padding: 1px 3px;">
+                                        <option value="All">All PP/C</option>
+                                        <option value="Colle">Colle</option>
+                                        <option value="Prepaid">Prepaid</option>
+                                    </select>
+
+                                    <select x-model="manifestFilters.currency" class="form-control-gf" style="height: 22px; width: 55px; font-size: 10px; padding: 1px 3px;">
+                                        <option value="All">All Curr</option>
+                                        @foreach($currencies as $curr)
+                                            <option value="{{ $curr->code }}">{{ $curr->code }}</option>
+                                        @endforeach
+                                    </select>
+
+                                    <select x-model="manifestFilters.invoiced" class="form-control-gf" style="height: 22px; width: 65px; font-size: 10px; padding: 1px 3px;">
+                                        <option value="All">All Inv</option>
+                                        <option value="Invoiced">Invoiced</option>
+                                        <option value="Uninvoiced">Uninvoiced</option>
+                                    </select>
+
+                                    <button type="button" @click="resetManifestFilters()" class="btn-default-gf" style="height: 22px; padding: 0 6px; background: #31708f; color: #fff; border: none; border-radius: 2px; font-size: 10px;" title="Reset Filters"><i class="fa fa-filter"></i> Reset</button>
+                                </div>
+
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 10px; color: #333; flex-wrap: wrap;">
+                                    <span><strong>POL :</strong> <input type="text" :value="form.dep_port_id ? '{{ $ports->where('id', $airImport->dep_port_id ?? 0)->first()->name ?? "Shanghai" }}' : 'Shanghai'" class="form-control-gf" style="width: 85px; height: 20px; font-size: 10px; display: inline-block; padding: 0 4px;" readonly></span>
+                                    <span><strong>POD :</strong> <input type="text" :value="form.dst_port_id ? '{{ $ports->where('id', $airImport->dst_port_id ?? 0)->first()->name ?? "Chattogram" }}' : 'Chattogram'" class="form-control-gf" style="width: 85px; height: 20px; font-size: 10px; display: inline-block; padding: 0 4px;" readonly></span>
+                                    <span><strong>FOB</strong></span>
+                                    <input type="text" :value="form.referred_by_id ? 'YOUNGONE HI-TE' : 'YOUNGONE HI-TE'" class="form-control-gf" style="width: 120px; height: 20px; font-size: 10px;" readonly>
+                                    <span>C:<span x-text="form.charges.length"></span></span>
+                                    <span>A:<span x-text="form.charges.filter(c => c.pr === 'Rec').length"></span></span>
+                                    <span>R:<span x-text="form.charges.filter(c => c.pr === 'Pay').length"></span></span>
+                                    <button type="button" @click="addCharge()" class="btn-default-gf" style="height: 22px; padding: 0 8px; background: #31708f; color: #fff; border: none; border-radius: 2px;" title="Add Charge Row"><i class="fa fa-plus"></i> Add Row</button>
+                                </div>
                             </div>
                         </div>
 
@@ -1061,6 +1337,7 @@
                             <button type="button" @click="activeChargeFilter = 'AR'" :class="activeChargeFilter === 'AR' ? 'btn-filter-active' : 'btn-filter'">A/R (<span x-text="form.charges.filter(c => c.pr === 'Rec').length"></span>)</button>
                             <button type="button" @click="activeChargeFilter = 'AP'" :class="activeChargeFilter === 'AP' ? 'btn-filter-active' : 'btn-filter'">A/P (<span x-text="form.charges.filter(c => c.pr === 'Pay').length"></span>)</button>
                             <button type="button" @click="activeChargeFilter = 'DC'" :class="activeChargeFilter === 'DC' ? 'btn-filter-active' : 'btn-filter'">D/C (0)</button>
+                            <button type="button" @click="deleteSelectedCharges()" class="btn-tool-icon" style="color:red; border-color:red; margin-left: auto;" title="Delete Selected Charges"><i class="fa fa-trash"></i></button>
                         </div>
 
                         <!-- Charges Table -->
@@ -1091,29 +1368,32 @@
                                         <th style="width: 50px;">Action</th>
                                     </tr>
                                 </thead>
-                                <template x-for="(charge, idx) in form.charges.filter(c => activeChargeFilter === 'All' || (activeChargeFilter === 'AR' && c.pr === 'Rec') || (activeChargeFilter === 'AP' && c.pr === 'Pay'))" :key="idx">
+                                <template x-for="(charge, idx) in filteredCharges" :key="idx">
                                     <tbody>
-                                        <!-- Main Row -->
+                                         <!-- Main Row -->
                                         <tr :style="charge.selected ? 'background:#fef9e7;' : ''">
-                                            <td><input type="checkbox" x-model="charge.selected"></td>
-                                            <td style="text-align: center;">
-                                                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                                                        <button type="button" @click="charge.expanded = !charge.expanded" class="btn-default-gf" style="padding: 0; height: 16px; width: 16px; line-height: 1; border-radius: 2px; background: #fff; border: 1px solid #ccc;">
-                                                            <i :class="charge.expanded ? 'fa fa-minus' : 'fa fa-plus'" style="font-size: 9px; color: #555;"></i>
-                                                        </button>
-                                                        <span x-text="idx + 1" style="font-weight: bold; font-size: 11px;"></span>
-                                                    </div>
-                                                </td>
                                             <td>
-                                                <select x-model="charge.party" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
-                                                    <option>Custom</option>
-                                                    <option>Shipper</option>
-                                                    <option>Consignee</option>
-                                                    <option>Agent</option>
+                                                <input type="hidden" :name="'charges['+idx+'][id]'" :value="charge.id">
+                                                <input type="checkbox" x-model="charge.selected">
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                                    <button type="button" @click="charge.expanded = !charge.expanded" class="btn-default-gf" style="padding: 0; height: 16px; width: 16px; line-height: 1; border-radius: 2px; background: #fff; border: 1px solid #ccc;">
+                                                        <i :class="charge.expanded ? 'fa fa-minus' : 'fa fa-plus'" style="font-size: 9px; color: #555;"></i>
+                                                    </button>
+                                                    <span x-text="idx + 1" style="font-weight: bold; font-size: 11px;"></span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <select :name="'charges['+idx+'][party]'" x-model="charge.party" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                    <option value="Custom">Custom</option>
+                                                    <option value="Shipper">Shipper</option>
+                                                    <option value="Consignee">Consignee</option>
+                                                    <option value="Agent">Agent</option>
                                                 </select>
                                             </td>
                                             <td>
-                                                <select x-model="charge.party_name_id" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                <select :name="'charges['+idx+'][party_name_id]'" x-model="charge.party_name_id" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
                                                     <option value="">Select...</option>
                                                     @foreach($allAgents as $agent)
                                                         <option value="{{ $agent->id }}">{{ $agent->name }}</option>
@@ -1121,51 +1401,51 @@
                                                 </select>
                                             </td>
                                             <td>
-                                                <select x-model="charge.sal" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
-                                                    <option>Air</option>
-                                                    <option>Ocean</option>
-                                                    <option>Truck</option>
+                                                <select :name="'charges['+idx+'][sal]'" x-model="charge.sal" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                    <option value="Air">Air</option>
+                                                    <option value="Ocean">Ocean</option>
+                                                    <option value="Truck">Truck</option>
                                                 </select>
                                             </td>
                                             <td>
-                                                <select x-model="charge.pr" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                <select :name="'charges['+idx+'][pr]'" x-model="charge.pr" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
                                                     <option value="Rec">Rec</option>
                                                     <option value="Pay">Pay</option>
                                                 </select>
                                             </td>
                                             <td>
-                                                <select x-model="charge.ppc" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
-                                                    <option>Colle</option>
-                                                    <option>Prepaid</option>
+                                                <select :name="'charges['+idx+'][ppc]'" x-model="charge.ppc" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                    <option value="Colle">Colle</option>
+                                                    <option value="Prepaid">Prepaid</option>
                                                 </select>
                                             </td>
-                                            <td><input type="text" x-model="charge.chrg_code" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
-                                            <td><input type="text" x-model="charge.charge_name" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
+                                            <td><input type="text" :name="'charges['+idx+'][chrg_code]'" x-model="charge.chrg_code" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
+                                            <td><input type="text" :name="'charges['+idx+'][charge_name]'" x-model="charge.charge_name" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
                                             <td>
-                                                <select x-model="charge.currency" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                <select :name="'charges['+idx+'][currency]'" x-model="charge.currency" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
                                                     @foreach($currencies as $curr)
                                                         <option value="{{ $curr->code }}">{{ $curr->code }}</option>
                                                     @endforeach
                                                 </select>
                                             </td>
-                                            <td><input type="number" x-model="charge.rate" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.01"></td>
-                                            <td><input type="number" x-model="charge.qty" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.01"></td>
+                                            <td><input type="number" :name="'charges['+idx+'][rate]'" x-model="charge.rate" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.01"></td>
+                                            <td><input type="number" :name="'charges['+idx+'][qty]'" x-model="charge.qty" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.01"></td>
                                             <td>
-                                                <select x-model="charge.qty_type" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
-                                                    <option>B/L</option>
-                                                    <option>UNIT</option>
-                                                    <option>KG</option>
-                                                    <option>CBM</option>
-                                                    <option>CNTR</option>
+                                                <select :name="'charges['+idx+'][qty_type]'" x-model="charge.qty_type" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;">
+                                                    <option value="B/L">B/L</option>
+                                                    <option value="UNIT">UNIT</option>
+                                                    <option value="KG">KG</option>
+                                                    <option value="CBM">CBM</option>
+                                                    <option value="CNTR">CNTR</option>
                                                 </select>
                                             </td>
-                                            <td><input type="number" x-model="charge.roe" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.0001"></td>
+                                            <td><input type="number" :name="'charges['+idx+'][roe]'" x-model="charge.roe" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.0001"></td>
                                             <td style="text-align: right;" x-text="((parseFloat(charge.rate) || 0) * (parseFloat(charge.qty) || 0) * (parseFloat(charge.roe) || 1)).toFixed(2)"></td>
-                                            <td><input type="number" x-model="charge.vat" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.01"></td>
+                                            <td><input type="number" :name="'charges['+idx+'][vat]'" x-model="charge.vat" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px; text-align: right;" step="0.01"></td>
                                             <td style="text-align: right;" x-text="(((parseFloat(charge.rate) || 0) * (parseFloat(charge.qty) || 0) * (parseFloat(charge.roe) || 1)) * (1 + (parseFloat(charge.vat) || 0) / 100)).toFixed(2)"></td>
-                                            <td><input type="text" x-model="charge.inv_no" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
-                                            <td><input type="date" x-model="charge.financial_date" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
-                                            <td><input type="text" x-model="charge.eq_bl_no" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
+                                            <td><input type="text" :name="'charges['+idx+'][inv_no]'" x-model="charge.inv_no" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
+                                            <td><input type="date" :name="'charges['+idx+'][financial_date]'" x-model="charge.financial_date" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
+                                            <td><input type="text" :name="'charges['+idx+'][eq_bl_no]'" x-model="charge.eq_bl_no" class="form-control-gf" style="font-size: 10px; height: 20px; padding: 2px;"></td>
                                             <td style="text-align: center;">
                                                 <button type="button" @click="deleteCharge(idx)" class="btn-tool-icon" style="height: 20px; width: 20px; padding: 0; color: red; border-color: red;" title="Delete">
                                                     <i class="fa fa-trash" style="font-size: 10px;"></i>
@@ -1183,37 +1463,37 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Seal No2.</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.seal_no2" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][seal_no2]'" x-model="charge.seal_no2" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Pick Up No.</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.pickup_no" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][pickup_no]'" x-model="charge.pickup_no" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">CPRS No.</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.cprs_no" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][cprs_no]'" x-model="charge.cprs_no" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">CNRU No.</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.cnru_no" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][cnru_no]'" x-model="charge.cnru_no" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">IT No.</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.it_no" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][it_no]'" x-model="charge.it_no" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">D.G</label>
                                                             <div class="form-input-container">
-                                                                <select x-model="charge.dg" class="form-control-gf" style="font-size: 11px;">
+                                                                <select :name="'charges['+idx+'][dg]'" x-model="charge.dg" class="form-control-gf" style="font-size: 11px;">
                                                                     <option value="No">No</option>
                                                                     <option value="Yes">Yes</option>
                                                                 </select>
@@ -1222,7 +1502,7 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Unit</label>
                                                             <div class="form-input-container">
-                                                                <select x-model="charge.unit" class="form-control-gf" style="font-size: 11px;">
+                                                                <select :name="'charges['+idx+'][unit]'" x-model="charge.unit" class="form-control-gf" style="font-size: 11px;">
                                                                     <option value="">Select...</option>
                                                                     <option value="KG">KG</option>
                                                                     <option value="LB">LB</option>
@@ -1234,13 +1514,13 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Temp</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.temp" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][temp]'" x-model="charge.temp" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Vent</label>
                                                             <div class="form-input-container">
-                                                                <select x-model="charge.vent" class="form-control-gf" style="font-size: 11px;">
+                                                                <select :name="'charges['+idx+'][vent]'" x-model="charge.vent" class="form-control-gf" style="font-size: 11px;">
                                                                     <option value="">Select...</option>
                                                                     <option value="Open">Open</option>
                                                                     <option value="Closed">Closed</option>
@@ -1250,13 +1530,13 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Storage Start</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.storage_start_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][storage_start_date]'" x-model="charge.storage_start_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Storage End</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.storage_end_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][storage_end_date]'" x-model="charge.storage_end_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1266,49 +1546,49 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Carrier Release</label>
                                                             <div class="form-input-container">
-                                                                <input type="checkbox" x-model="charge.carrier_release" style="width: 14px; height: 14px;">
+                                                                <input type="checkbox" :name="'charges['+idx+'][carrier_release]'" value="1" x-model="charge.carrier_release" style="width: 14px; height: 14px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Yard Location</label>
                                                             <div class="form-input-container">
-                                                                <input type="text" x-model="charge.yard_location" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="text" :name="'charges['+idx+'][yard_location]'" x-model="charge.yard_location" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Unload from Vessel</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.unload_vessel_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][unload_vessel_date]'" x-model="charge.unload_vessel_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Gate In</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.gate_in_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][gate_in_date]'" x-model="charge.gate_in_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Rail Start</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.rail_start_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][rail_start_date]'" x-model="charge.rail_start_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Place of Delivery ETA</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.pod_eta_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][pod_eta_date]'" x-model="charge.pod_eta_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Available for Pickup</label>
                                                             <div class="form-input-container">
-                                                                <input type="checkbox" x-model="charge.available_pickup" style="width: 14px; height: 14px;">
+                                                                <input type="checkbox" :name="'charges['+idx+'][available_pickup]'" value="1" x-model="charge.available_pickup" style="width: 14px; height: 14px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 130px;">Weight (LB)</label>
                                                             <div class="form-input-container">
-                                                                <input type="number" x-model="charge.weight_lb" class="form-control-gf" style="font-size: 11px;" step="0.01">
+                                                                <input type="number" :name="'charges['+idx+'][weight_lb]'" x-model="charge.weight_lb" class="form-control-gf" style="font-size: 11px;" step="0.01">
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1318,13 +1598,13 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Appt.</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.appt_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][appt_date]'" x-model="charge.appt_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Trucker</label>
                                                             <div class="form-input-container">
-                                                                <select x-model="charge.trucker_id" class="form-control-gf" style="font-size: 11px;">
+                                                                <select :name="'charges['+idx+'][trucker_id]'" x-model="charge.trucker_id" class="form-control-gf" style="font-size: 11px;">
                                                                     <option value="">Select...</option>
                                                                     @foreach($truckers as $trucker)
                                                                         <option value="{{ $trucker->id }}">{{ $trucker->name }}</option>
@@ -1335,37 +1615,37 @@
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Pick Up</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.pickup_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][pickup_date]'" x-model="charge.pickup_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Gate Out</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.pickup_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][gate_out_date]'" x-model="charge.gate_out_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">F.Dest ETA</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.fdest_eta_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][fdest_eta_date]'" x-model="charge.fdest_eta_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">ETA Door</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.eta_door_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][eta_door_date]'" x-model="charge.eta_door_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">ATA Door</label>
                                                             <div class="form-input-container">
-                                                                <input type="date" x-model="charge.ata_door_date" class="form-control-gf" style="font-size: 11px;">
+                                                                <input type="date" :name="'charges['+idx+'][ata_door_date]'" x-model="charge.ata_door_date" class="form-control-gf" style="font-size: 11px;">
                                                             </div>
                                                         </div>
                                                         <div class="form-group-gf" style="margin-bottom: 0;">
                                                             <label class="form-label-gf" style="width: 120px;">Measurement (CFT)</label>
                                                             <div class="form-input-container">
-                                                                <input type="number" x-model="charge.measurement_cft" class="form-control-gf" style="font-size: 11px;" step="0.01">
+                                                                <input type="number" :name="'charges['+idx+'][measurement_cft]'" x-model="charge.measurement_cft" class="form-control-gf" style="font-size: 11px;" step="0.01">
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1375,30 +1655,30 @@
                                                 <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                                     <div>
                                                         <label style="font-size: 10px; font-weight: 600; color: #666; display: block; margin-bottom: 5px;">Remarks</label>
-                                                        <textarea x-model="charge.remarks" class="form-control-gf" style="height: 50px; font-size: 11px; resize: vertical;"></textarea>
+                                                        <textarea :name="'charges['+idx+'][remarks]'" x-model="charge.remarks" class="form-control-gf" style="height: 50px; font-size: 11px; resize: vertical;"></textarea>
                                                     </div>
                                                     <div>
                                                         <label style="font-size: 10px; font-weight: 600; color: #666; display: block; margin-bottom: 5px;">Internal Remarks</label>
-                                                        <textarea x-model="charge.internal_remarks" class="form-control-gf" style="height: 50px; font-size: 11px; resize: vertical;"></textarea>
+                                                        <textarea :name="'charges['+idx+'][internal_remarks]'" x-model="charge.internal_remarks" class="form-control-gf" style="height: 50px; font-size: 11px; resize: vertical;"></textarea>
                                                     </div>
                                                 </div>
                                                 <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                                                     <div class="form-group-gf" style="margin-bottom: 0;">
                                                         <label class="form-label-gf" style="width: 130px;">Empty Confirmed</label>
                                                         <div class="form-input-container">
-                                                            <input type="date" x-model="charge.empty_confirmed_date" class="form-control-gf" style="font-size: 11px;">
+                                                            <input type="date" :name="'charges['+idx+'][empty_confirmed_date]'" x-model="charge.empty_confirmed_date" class="form-control-gf" style="font-size: 11px;">
                                                         </div>
                                                     </div>
                                                     <div class="form-group-gf" style="margin-bottom: 0;">
                                                         <label class="form-label-gf" style="width: 120px;">Empty Return</label>
                                                         <div class="form-input-container">
-                                                            <input type="date" x-model="charge.empty_return_date" class="form-control-gf" style="font-size: 11px;">
+                                                            <input type="date" :name="'charges['+idx+'][empty_return_date]'" x-model="charge.empty_return_date" class="form-control-gf" style="font-size: 11px;">
                                                         </div>
                                                     </div>
                                                     <div class="form-group-gf" style="margin-bottom: 0;">
                                                         <label class="form-label-gf" style="width: 100px;">Complete</label>
                                                         <div class="form-input-container">
-                                                            <input type="checkbox" x-model="charge.complete" style="width: 14px; height: 14px;">
+                                                            <input type="checkbox" :name="'charges['+idx+'][complete]'" value="1" x-model="charge.complete" style="width: 14px; height: 14px;">
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1407,21 +1687,21 @@
                                     </tbody>
                                 </template>
                                 <tbody>
-                                    <template x-if="form.charges.length === 0">
+                                    <template x-if="filteredCharges.length === 0">
                                         <tr>
                                             <td colspan="21" style="text-align: center; padding: 30px; color: #999;">
                                                 <i class="fa fa-inbox" style="font-size: 40px; opacity: 0.3; display: block; margin-bottom: 10px;"></i>
-                                                No charges added yet. Click "Add Charge" button to start.
+                                                <span x-text="form.charges.length === 0 ? 'No charges added yet. Click &quot;+ Add Row&quot; button to start.' : 'No charges match the selected manifest filter.'"></span>
                                             </td>
                                         </tr>
                                     </template>
                                 </tbody>
-                                <tfoot x-show="form.charges.length > 0">
+                                <tfoot x-show="filteredCharges.length > 0">
                                     <tr style="background: #f9fafb; font-weight: bold;">
                                         <td colspan="14" style="text-align: right; padding-right: 10px;">Total:</td>
-                                        <td style="text-align: right;" x-text="form.charges.reduce((sum, c) => sum + ((parseFloat(c.rate) || 0) * (parseFloat(c.qty) || 0) * (parseFloat(c.roe) || 1)), 0).toFixed(2)"></td>
+                                        <td style="text-align: right;" x-text="filteredCharges.reduce((sum, c) => sum + ((parseFloat(c.rate) || 0) * (parseFloat(c.qty) || 0) * (parseFloat(c.roe) || 1)), 0).toFixed(2)"></td>
                                         <td></td>
-                                        <td style="text-align: right;" x-text="form.charges.reduce((sum, c) => sum + (((parseFloat(c.rate) || 0) * (parseFloat(c.qty) || 0) * (parseFloat(c.roe) || 1)) * (1 + (parseFloat(c.vat) || 0) / 100)), 0).toFixed(2)"></td>
+                                        <td style="text-align: right;" x-text="filteredCharges.reduce((sum, c) => sum + (((parseFloat(c.rate) || 0) * (parseFloat(c.qty) || 0) * (parseFloat(c.roe) || 1)) * (1 + (parseFloat(c.vat) || 0) / 100)), 0).toFixed(2)"></td>
                                         <td colspan="4"></td>
                                     </tr>
                                 </tfoot>
@@ -1515,41 +1795,41 @@
                     <div class="portlet-body">
                         <div class="form-grid-4">
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">Shipper</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Bill To</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Oversea Agent</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Shipper</label><div class="form-input-container"><select name="shipper_id" class="form-control-gf"><option value="">Select...</option>@foreach($allAgents as $agent)<option value="{{ $agent->id }}" {{ (isset($airImport) && $airImport->shipper_id == $agent->id) ? 'selected' : '' }}>{{ $agent->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Bill To</label><div class="form-input-container"><select name="bill_to_id" class="form-control-gf"><option value="">Select...</option>@foreach($allAgents as $agent)<option value="{{ $agent->id }}" {{ (isset($airImport) && $airImport->bill_to_id == $agent->id) ? 'selected' : '' }}>{{ $agent->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Oversea Agent</label><div class="form-input-container"><select name="oversea_agent_id" class="form-control-gf"><option value="">Select...</option>@foreach($agents as $agent)<option value="{{ $agent->id }}" {{ (isset($airImport) && $airImport->oversea_agent_id == $agent->id) ? 'selected' : '' }}>{{ $agent->name }}</option>@endforeach</select></div></div>
                                 <div style="height: 5px;"></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Trucker</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">P.O.D ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Ship Mode</label><div class="form-input-container"><select class="form-control-gf"><option>FCL</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">G.O Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Trucker</label><div class="form-input-container"><select name="trucker_id" class="form-control-gf"><option value="">Select...</option>@foreach($truckers as $trucker)<option value="{{ $trucker->id }}" {{ (isset($airImport) && $airImport->trucker_id == $trucker->id) ? 'selected' : '' }}>{{ $trucker->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">P.O.D ETA</label><div class="form-input-container"><input type="date" name="pod_eta" class="form-control-gf" value="{{ isset($airImport) && $airImport->pod_eta ? $airImport->pod_eta->format('Y-m-d') : '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Ship Mode</label><div class="form-input-container"><select name="ship_mode" class="form-control-gf"><option value="AIR" {{ (isset($airImport) && $airImport->ship_mode == 'AIR') ? 'selected' : 'selected' }}>AIR</option><option value="EXPRESS" {{ (isset($airImport) && $airImport->ship_mode == 'EXPRESS') ? 'selected' : '' }}>EXPRESS</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">G.O Date</label><div class="form-input-container"><input type="date" name="go_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->go_date ? $airImport->go_date->format('Y-m-d') : '' }}"></div></div>
                             </div>
                             
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">Consignee</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Sub B/L No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Consignee</label><div class="form-input-container"><select name="consignee_id" class="form-control-gf"><option value="">Select...</option>@foreach($allAgents as $agent)<option value="{{ $agent->id }}" {{ (isset($airImport) && $airImport->consignee_id == $agent->id) ? 'selected' : '' }}>{{ $agent->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Sub B/L No.</label><div class="form-input-container"><input type="text" name="sub_bl_no" class="form-control-gf" value="{{ $airImport->sub_bl_no ?? '' }}"></div></div>
                                 <div style="height: 5px;"></div>
-                                <div class="form-group-gf"><label class="form-label-gf">CY/CFS Loc.</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Final Dest.</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-edit" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Freight</label><div class="form-input-container"><select class="form-control-gf"><option>PREPAID</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Expiry Date</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">CY/CFS Loc.</label><div class="form-input-container"><input type="text" name="cy_cfs_loc" class="form-control-gf" value="{{ $airImport->cy_cfs_loc ?? '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Final Dest.</label><div class="form-input-container"><select name="final_destination_id" class="form-control-gf"><option value="">Select...</option>@foreach($ports as $port)<option value="{{ $port->id }}" {{ (isset($airImport) && $airImport->final_destination_id == $port->id) ? 'selected' : '' }}>{{ $port->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Freight</label><div class="form-input-container"><select name="freight_term" class="form-control-gf"><option value="">Select...</option><option value="PREPAID" {{ (isset($airImport) && $airImport->freight_term == 'PREPAID') ? 'selected' : '' }}>PREPAID</option><option value="COLLECT" {{ (isset($airImport) && $airImport->freight_term == 'COLLECT') ? 'selected' : '' }}>COLLECT</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Expiry Date</label><div class="form-input-container"><input type="date" name="expiry_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->expiry_date ? $airImport->expiry_date->format('Y-m-d') : '' }}"></div></div>
                             </div>
 
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">Notify</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select> <button type="button" class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">OP</label><div class="form-input-container"><input type="text" class="form-control-gf" value="{{ auth()->user()->name ?? 'DEMO_USER' }}" disabled style="background:#f5f5f5;"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Notify</label><div class="form-input-container"><select name="notify_id" class="form-control-gf"><option value="">Select...</option>@foreach($allAgents as $agent)<option value="{{ $agent->id }}" {{ (isset($airImport) && $airImport->notify_id == $agent->id) ? 'selected' : '' }}>{{ $agent->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">OP</label><div class="form-input-container"><input type="text" class="form-control-gf" value="{{ isset($airImport) ? ($airImport->operator->name ?? auth()->user()->name) : auth()->user()->name }}" disabled style="background:#f5f5f5;"></div></div>
                                 <div style="height: 19px;"></div>
                                 <div style="height: 5px;"></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Available</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Final ETA</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">LFD</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Available</label><div class="form-input-container"><input type="date" name="last_free_day" class="form-control-gf" value="{{ isset($airImport) && $airImport->last_free_day ? $airImport->last_free_day->format('Y-m-d') : '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Final ETA</label><div class="form-input-container"><input type="date" name="final_eta" class="form-control-gf" value="{{ isset($airImport) && $airImport->final_eta ? $airImport->final_eta->format('Y-m-d') : '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">LFD</label><div class="form-input-container"><input type="date" name="last_free_day" class="form-control-gf" value="{{ isset($airImport) && $airImport->last_free_day ? $airImport->last_free_day->format('Y-m-d') : '' }}"></div></div>
                             </div>
 
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">AMS No.</label><div class="form-input-container"><input type="text" class="form-control-gf"> <button class="btn-default-gf" style="height:18px; padding: 0 4px;"><i class="fa fa-external-link" style="font-size:9px;"></i></button></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">ISF No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">ISF Matched</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">ISF 3rd Party</label><div class="form-input-container" style="justify-content: flex-start;"><input type="checkbox"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">AMS No.</label><div class="form-input-container"><input type="text" name="ams_no" class="form-control-gf" value="{{ $airImport->ams_no ?? '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ISF No.</label><div class="form-input-container"><input type="text" name="isf_no" class="form-control-gf" value="{{ $airImport->isf_no ?? '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ISF Matched</label><div class="form-input-container"><input type="date" name="isf_matched_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->isf_matched_date ? $airImport->isf_matched_date->format('Y-m-d') : '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ISF 3rd Party</label><div class="form-input-container" style="justify-content: flex-start;"><input type="checkbox" name="isf_3rd_party" value="1" {{ (isset($airImport) && $airImport->isf_3rd_party) ? 'checked' : '' }}></div></div>
                             </div>
                         </div>
 
@@ -1557,33 +1837,31 @@
 
                         <div class="form-grid-4">
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">Sales Type</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">C. Released</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Entry No.</label><div class="form-input-container"><input type="text" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">ROR</label><div class="form-input-container"><input type="checkbox"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Released By</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">DO Sent</label><div class="form-input-container"><input type="checkbox"> <input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Sales Type</label><div class="form-input-container"><select name="sales_type" class="form-control-gf"><option value="">Select...</option><option value="NOMINATED" {{ (isset($airImport) && $airImport->sales_type == 'NOMINATED') ? 'selected' : '' }}>NOMINATED</option><option value="FREE HAND" {{ (isset($airImport) && $airImport->sales_type == 'FREE HAND') ? 'selected' : '' }}>FREE HAND</option></select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">C. Released</label><div class="form-input-container"><input type="date" name="c_released_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->c_released_date ? $airImport->c_released_date->format('Y-m-d') : '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Entry No.</label><div class="form-input-container"><input type="text" name="entry_no" class="form-control-gf" value="{{ $airImport->entry_no ?? '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">ROR</label><div class="form-input-container"><input type="checkbox" name="ror" value="1" {{ (isset($airImport) && $airImport->ror) ? 'checked' : '' }}></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Released By</label><div class="form-input-container"><select name="released_by_id" class="form-control-gf"><option value="">Select...</option>@foreach($users as $user)<option value="{{ $user->id }}" {{ (isset($airImport) && $airImport->released_by_id == $user->id) ? 'selected' : '' }}>{{ $user->name }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">DO Sent</label><div class="form-input-container"><input type="checkbox" name="do_sent" value="1" {{ (isset($airImport) && $airImport->do_sent) ? 'checked' : '' }}> <input type="date" name="do_sent_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->do_sent_date ? $airImport->do_sent_date->format('Y-m-d') : '' }}"></div></div>
                             </div>
 
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">Incoterms</label><div class="form-input-container"><select class="form-control-gf"><option>Select...</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Service Term</label><div class="form-input-container"><select class="form-control-gf" style="width:45%;"><option>CY</option></select>~<select class="form-control-gf" style="width:45%;"><option>CY</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Entry DOC Sent</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Hold</label><div class="form-input-container"><input type="checkbox"></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Door Deliv.</label><div class="form-input-container"><input type="date" class="form-control-gf"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Incoterms</label><div class="form-input-container"><select name="incoterm_id" class="form-control-gf"><option value="">Select...</option>@foreach($incoterms as $inco)<option value="{{ $inco->id }}" {{ (isset($airImport) && $airImport->incoterm_id == $inco->id) ? 'selected' : '' }}>{{ $inco->code }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Service Term</label><div class="form-input-container"><select name="service_term_from" class="form-control-gf" style="width:45%;"><option value="">Select...</option>@foreach($serviceTerms as $term)<option value="{{ $term->code }}" {{ (isset($airImport) && $airImport->service_term_from == $term->code) ? 'selected' : '' }}>{{ $term->code }}</option>@endforeach</select>~<select name="service_term_to" class="form-control-gf" style="width:45%;"><option value="">Select...</option>@foreach($serviceTerms as $term)<option value="{{ $term->code }}" {{ (isset($airImport) && $airImport->service_term_to == $term->code) ? 'selected' : '' }}>{{ $term->code }}</option>@endforeach</select></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Entry DOC Sent</label><div class="form-input-container"><input type="date" name="entry_doc_sent_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->entry_doc_sent_date ? $airImport->entry_doc_sent_date->format('Y-m-d') : '' }}"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Hold</label><div class="form-input-container"><input type="checkbox" name="hold" value="1" {{ (isset($airImport) && $airImport->hold) ? 'checked' : '' }}></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Door Deliv.</label><div class="form-input-container"><input type="date" name="door_delivered_date" class="form-control-gf" value="{{ isset($airImport) && $airImport->door_delivered_date ? $airImport->door_delivered_date->format('Y-m-d') : '' }}"></div></div>
                             </div>
 
                             <div class="flex flex-col">
-                                <div class="form-group-gf"><label class="form-label-gf">Cargo Type</label><div class="form-input-container"><select class="form-control-gf"><option>GENERAL CARGO</option></select></div></div>
-                                <div class="form-group-gf"><label class="form-label-gf">Container/Qty</label><div class="form-input-container"><input type="text" class="form-control-gf" disabled style="background:#f5f5f5;"></div></div>
+                                <div class="form-group-gf"><label class="form-label-gf">Cargo Type</label><div class="form-input-container"><select name="cargo_type" class="form-control-gf"><option value="">Select...</option><option value="GENERAL CARGO" {{ (isset($airImport) && $airImport->cargo_type == 'GENERAL CARGO') ? 'selected' : '' }}>GENERAL CARGO</option><option value="DANGEROUS GOODS" {{ (isset($airImport) && $airImport->cargo_type == 'DANGEROUS GOODS') ? 'selected' : '' }}>DANGEROUS GOODS</option></select></div></div>
                             </div>
                             
                             <div class="flex flex-col"></div>
                         </div>
                     </div>
-                </div>
-            </div>
         </div>
+        </form>
 
         <!-- Load Quotation Data Modal -->
         <div x-show="showQuoteModal" class="modal-overlay" x-cloak>
@@ -1919,110 +2197,133 @@
     </div>
 
     <!-- Dimensions Modal -->
+    <!-- Volume & Gross Weight Calculator Modal -->
     <div x-show="showDimensionsModal" 
          x-cloak
          style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;"
          @click.self="closeDimensionsModal()">
-        <div style="background: white; border-radius: 4px; width: 500px; max-width: 90%; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <div style="background: white; border-radius: 4px; width: 750px; max-width: 95%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-size: 11px;">
             <!-- Modal Header -->
-            <div style="padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f9fafb;">
-                <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #333;">
-                    <i class="fa fa-cube" style="color: #5c9bd1; margin-right: 8px;"></i>
-                    Set Dimensions
+            <div style="padding: 12px 18px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 500; color: #555;">
+                    Volume & Gross Weight Calculator
                 </h3>
-                <button type="button" @click="closeDimensionsModal()" style="background: none; border: none; font-size: 20px; color: #999; cursor: pointer; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                <button type="button" @click="closeDimensionsModal()" style="background: none; border: none; font-size: 18px; color: #ccc; cursor: pointer; padding: 0;">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
 
             <!-- Modal Body -->
-            <div style="padding: 20px;">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px;">Unit</label>
-                    <div style="display: flex; gap: 15px;">
-                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                            <input type="radio" x-model="dimensions.unit" value="CM" style="width: 14px; height: 14px;">
-                            <span style="font-size: 13px;">CM (Centimeters)</span>
+            <div style="padding: 15px 18px;">
+                <!-- Toolbar & Unit Switcher -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" @click="addDimensionRow()" style="background: #26a69a; color: #fff; border: none; width: 26px; height: 26px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                        <button type="button" @click="deleteSelectedDimensions()" style="background: #fff; color: #888; border: 1px solid #ddd; width: 26px; height: 26px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa fa-trash-o"></i>
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center; color: #666; font-size: 11px;">
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                            <input type="radio" x-model="dimensionUnit" value="CM" style="margin: 0;"> CM
                         </label>
-                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                            <input type="radio" x-model="dimensions.unit" value="IN" style="width: 14px; height: 14px;">
-                            <span style="font-size: 13px;">IN (Inches)</span>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                            <input type="radio" x-model="dimensionUnit" value="Inch" style="margin: 0;"> Inch
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                            <input type="radio" x-model="dimensionUnit" value="Feet" style="margin: 0;"> Feet
                         </label>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px;">
-                            Length <span style="color: red;">*</span>
-                        </label>
-                        <input type="number" x-model="dimensions.length" 
-                               class="form-control-gf" 
-                               placeholder="0.00"
-                               step="0.01" 
-                               min="0"
-                               style="width: 100%;">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px;">
-                            Width <span style="color: red;">*</span>
-                        </label>
-                        <input type="number" x-model="dimensions.width" 
-                               class="form-control-gf" 
-                               placeholder="0.00"
-                               step="0.01" 
-                               min="0"
-                               style="width: 100%;">
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px;">
-                            Height <span style="color: red;">*</span>
-                        </label>
-                        <input type="number" x-model="dimensions.height" 
-                               class="form-control-gf" 
-                               placeholder="0.00"
-                               step="0.01" 
-                               min="0"
-                               style="width: 100%;">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px;">
-                            Pieces <span style="color: red;">*</span>
-                        </label>
-                        <input type="number" x-model="dimensions.pieces" 
-                               class="form-control-gf" 
-                               placeholder="1"
-                               step="1" 
-                               min="1"
-                               style="width: 100%;">
-                    </div>
-                </div>
-
-                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; padding: 12px; margin-top: 15px;">
-                    <div style="display: flex; align-items: start; gap: 10px;">
-                        <i class="fa fa-info-circle" style="color: #0284c7; font-size: 16px; margin-top: 2px;"></i>
-                        <div style="font-size: 12px; color: #0c4a6e; line-height: 1.5;">
-                            <strong>Formula:</strong><br>
-                            • Volume (CBM) = (L × W × H × Pieces) ÷ 1,000,000<br>
-                            • Volume Weight (KG) = CBM × 167 (air freight factor)
-                        </div>
-                    </div>
+                <!-- Calculator Table -->
+                <div style="border: 1px solid #ccc; max-height: 250px; overflow-y: auto;">
+                    <table class="table-custom" style="width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px;">
+                        <thead>
+                            <tr style="background: #888; color: #fff;">
+                                <th style="width: 30px; text-align: center; background: #888; color: #fff; border-right: 1px solid #999; padding: 6px 4px;">
+                                    <input type="checkbox" @change="dimensionRows.forEach(r => r.selected = $event.target.checked)">
+                                </th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Length</th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Width</th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">Height</th>
+                                <th style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 6px 4px;">PCS</th>
+                                <th colspan="2" style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 4px;">
+                                    Gross Weight
+                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
+                                        <span style="width: 50%;">KGS</span>
+                                        <span style="width: 50%;">LBS</span>
+                                    </div>
+                                </th>
+                                <th colspan="2" style="background: #888; color: #fff; border-right: 1px solid #999; text-align: center; padding: 4px;">
+                                    Volume Weight
+                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
+                                        <span style="width: 50%;">KGS</span>
+                                        <span style="width: 50%;">LBS</span>
+                                    </div>
+                                </th>
+                                <th colspan="2" style="background: #888; color: #fff; text-align: center; padding: 4px;">
+                                    Measurement
+                                    <div style="display: flex; justify-content: space-around; border-top: 1px solid #aaa; margin-top: 2px; padding-top: 2px; font-weight: normal;">
+                                        <span style="width: 50%;">CBM</span>
+                                        <span style="width: 50%;">CFT</span>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(row, idx) in dimensionRows" :key="idx">
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="text-align: center; padding: 4px;">
+                                        <input type="checkbox" x-model="row.selected">
+                                    </td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.length" placeholder="0"></td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.width" placeholder="0"></td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="0.01" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.height" placeholder="0"></td>
+                                    <td style="padding: 2px 4px;"><input type="number" step="1" class="form-control-gf" style="height: 22px; padding: 2px; text-align: right;" x-model="row.pcs" placeholder="1"></td>
+                                    
+                                    <!-- Gross Weight -->
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolKg(row).toFixed(2)"></td>
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolLb(row).toFixed(2)"></td>
+                                    
+                                    <!-- Volume Weight -->
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolKg(row).toFixed(2)"></td>
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowVolLb(row).toFixed(2)"></td>
+                                    
+                                    <!-- Measurement -->
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowCbm(row).toFixed(2)"></td>
+                                    <td style="text-align: right; padding: 4px;" x-text="calcRowCft(row).toFixed(2)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #fafafa; font-weight: bold; border-top: 2px solid #ccc;">
+                                <td colspan="4" style="text-align: right; padding: 6px;">Total</td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimPcs"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolKg.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolLb.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolKg.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimVolLb.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimCbm.toFixed(2)"></td>
+                                <td style="text-align: right; padding: 6px;" x-text="totalDimCft.toFixed(2)"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
             <!-- Modal Footer -->
-            <div style="padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; background: #f9fafb;">
-                <button type="button" @click="closeDimensionsModal()" class="btn-default-gf" style="padding: 8px 20px; font-size: 13px; background: #e5e5e5; border: none; color: #333;">
+            <div style="padding: 12px 18px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; background: #fff;">
+                <button type="button" @click="closeDimensionsModal()" class="btn-default-gf" style="padding: 5px 15px; font-size: 12px; background: #e5e5e5; border: none; color: #333; border-radius: 2px;">
                     Cancel
                 </button>
-                <button type="button" @click="calculateVolume()" class="btn-tool" style="padding: 8px 20px; font-size: 13px; background: #5c9bd1; border: none; color: #fff;">
-                    <i class="fa fa-calculator"></i> Calculate
+                <button type="button" @click="applyDimensions()" class="btn-tool" style="padding: 5px 15px; font-size: 12px; background: #31708f; border: none; color: #fff; border-radius: 2px;">
+                    Apply
                 </button>
             </div>
         </div>
     </div>
-
+</div>
 </x-layout>
