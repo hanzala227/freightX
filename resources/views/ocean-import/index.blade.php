@@ -414,11 +414,26 @@
                     this.saveError = '';
                     try {
                         const form = document.querySelector('form[action*="ocean-import"]');
-                        const formData = new FormData(form);
+                        
+                        const payload = {
+                            ...this.form,
+                            hbls: this.hbls,
+                            charges: this.chargesList,
+                            _token: document.querySelector('input[name="_token"]').value
+                        };
+                        
+                        if (this.form.id) {
+                            payload._method = 'PUT';
+                        }
+
                         const resp = await fetch(form.action, {
                             method: 'POST',
-                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                            body: formData
+                            headers: { 
+                                'X-Requested-With': 'XMLHttpRequest', 
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
                         });
                         const data = await resp.json();
                         if (!resp.ok) {

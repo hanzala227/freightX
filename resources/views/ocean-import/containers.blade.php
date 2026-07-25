@@ -295,7 +295,7 @@
             </ul>
         </div>
 
-        <div class="portlet light">
+        <div class="portlet light" x-data="containerGrid()" x-cloak>
 
             {{-- TITLE --}}
             <div class="portlet-title">
@@ -304,6 +304,14 @@
                     <span id="sel-badge" style="display:none;font-size:10px;color:#3b82f6;font-weight:600;background:#eff6ff;padding:1px 6px;border-radius:10px;border:1px solid #bfdbfe;"></span>
                 </div>
                 <div class="actions" style="display:flex;gap:4px;position:relative;align-items:center;">
+                    <div x-show="hasChanges" x-transition style="display:flex;gap:4px;margin-right:8px;border-right:1px solid #e2e8f0;padding-right:8px;">
+                        <button type="button" class="btn-action-round" style="background:#ef4444;color:white;border:none;" @click="cancelChanges()" title="Cancel Changes">
+                            <i class="fa fa-times"></i> Cancel
+                        </button>
+                        <button type="button" class="btn-action-round" style="background:#22c55e;color:white;border:none;" @click="saveChanges($event)" title="Save Changes">
+                            <i class="fa fa-save"></i> Save
+                        </button>
+                    </div>
                     <button class="btn-action-round" id="btn-filter" onclick="toggleFilter()" title="Toggle filter row">
                         <i class="fa fa-filter"></i> Filter
                     </button>
@@ -340,26 +348,9 @@
             </div>
 
             {{-- BULK-ACTION FORM + TABLE --}}
-            <form id="bulk-form" method="POST" action="{{ route('ocean-import.bulk-delete') }}" style="margin:0;" x-data="containerGrid()">
+            <form id="bulk-form" method="POST" action="{{ route('ocean-import.bulk-delete') }}" style="margin:0;">
                 @csrf
                 @method('DELETE')
-                
-                {{-- SAVE BAR (Shown when changes detected) --}}
-                <div x-show="hasChanges" class="save-bar" x-transition>
-                    <span style="font-weight:600;">
-                        <i class="fa fa-exclamation-circle"></i>
-                        You have unsaved changes
-                    </span>
-                    <div style="display:flex;gap:8px;">
-                        <button type="button" @click="cancelChanges()" class="cancel-btn">
-                            <i class="fa fa-times"></i> Cancel
-                        </button>
-                        <button type="button" @click="saveChanges()">
-                            <i class="fa fa-save"></i> Save Changes
-                        </button>
-                    </div>
-                </div>
-                
             <div class="portlet-body">
                 <div class="grid-container">
                     <div class="grid-wrapper">
@@ -526,11 +517,13 @@ document.addEventListener('alpine:init', () => {
             event.target.classList.add('changed');
         },
         
-        async saveChanges() {
-            const saveBtn = document.querySelector('.save-bar button');
-            const originalText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
-            saveBtn.disabled = true;
+        async saveChanges(event = null) {
+            const saveBtn = event ? event.currentTarget : document.querySelector('[title="Save Changes"]');
+            const originalText = saveBtn ? saveBtn.innerHTML : '';
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving';
+                saveBtn.disabled = true;
+            }
             
             try {
                 const response = await fetch('/ocean-import/containers/batch-update-inline', {

@@ -255,7 +255,24 @@ class OceanImportController extends Controller
 
     public function store(StoreOceanImportRequest $request)
     {
-        $shipment = $this->oceanImportService->store($request->validated());
+        // Debug: Log what data is being received
+        \Log::info('=== Ocean Import Store START ===');
+        \Log::info('Raw Request All:', $request->all());
+        \Log::info('Has Containers Key:', ['has' => $request->has('containers')]);
+        \Log::info('Containers Input:', ['containers' => $request->input('containers', [])]);
+        \Log::info('Validated Data:', $request->validated());
+        
+        $validatedData = $request->validated();
+        \Log::info('Containers in Validated:', [
+            'has_key' => isset($validatedData['containers']),
+            'count' => isset($validatedData['containers']) ? count($validatedData['containers']) : 0,
+            'data' => $validatedData['containers'] ?? []
+        ]);
+        
+        $shipment = $this->oceanImportService->store($validatedData);
+        
+        \Log::info('Shipment Created:', ['id' => $shipment->id, 'containers_count' => $shipment->containers()->count()]);
+        \Log::info('=== Ocean Import Store END ===');
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([

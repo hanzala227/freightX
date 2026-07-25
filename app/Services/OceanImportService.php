@@ -12,12 +12,24 @@ class OceanImportService
     public function store(array $data)
     {
         return DB::transaction(function () use ($data) {
+            \Log::info('=== OceanImportService Store ===');
+            \Log::info('Data received in service:', [
+                'has_containers' => isset($data['containers']),
+                'containers_count' => isset($data['containers']) ? count($data['containers']) : 0
+            ]);
+            
             $oceanImport = OceanImport::create($data);
+            \Log::info('OceanImport created with ID:', ['id' => $oceanImport->id]);
 
-            if (isset($data['containers'])) {
-                foreach ($data['containers'] as $containerData) {
-                    $oceanImport->containers()->create($containerData);
+            if (isset($data['containers']) && is_array($data['containers'])) {
+                \Log::info('Processing containers:', ['count' => count($data['containers'])]);
+                foreach ($data['containers'] as $index => $containerData) {
+                    \Log::info("Creating container #{$index}:", $containerData);
+                    $container = $oceanImport->containers()->create($containerData);
+                    \Log::info("Container created:", ['id' => $container->id, 'container_no' => $container->container_no]);
                 }
+            } else {
+                \Log::warning('No containers data found or containers is not an array');
             }
 
             if (isset($data['hbls'])) {
