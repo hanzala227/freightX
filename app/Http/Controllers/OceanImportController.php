@@ -268,36 +268,114 @@ class OceanImportController extends Controller
 
     public function store(StoreOceanImportRequest $request)
     {
-        // Debug: Log what data is being received
-        \Log::info('=== Ocean Import Store START ===');
-        \Log::info('Raw Request All:', $request->all());
-        \Log::info('Has Containers Key:', ['has' => $request->has('containers')]);
-        \Log::info('Containers Input:', ['containers' => $request->input('containers', [])]);
-        \Log::info('Validated Data:', $request->validated());
-        
-        $validatedData = $request->validated();
-        \Log::info('Containers in Validated:', [
-            'has_key' => isset($validatedData['containers']),
-            'count' => isset($validatedData['containers']) ? count($validatedData['containers']) : 0,
-            'data' => $validatedData['containers'] ?? []
-        ]);
-        
-        $shipment = $this->oceanImportService->store($validatedData);
-        
-        \Log::info('Shipment Created:', ['id' => $shipment->id, 'containers_count' => $shipment->containers()->count()]);
-        \Log::info('=== Ocean Import Store END ===');
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'id' => $shipment->id,
-                'file_no' => $shipment->file_no,
-                'message' => 'Shipment created successfully.'
+        try {
+            // Debug: Log what data is being received
+            \Log::info('=== Ocean Import Store START ===');
+            \Log::info('Raw Request All:', $request->all());
+            \Log::info('Has Containers Key:', ['has' => $request->has('containers')]);
+            \Log::info('Containers Input:', ['containers' => $request->input('containers', [])]);
+            \Log::info('Validated Data:', $request->validated());
+            
+            $validatedData = $request->validated();
+            \Log::info('Containers in Validated:', [
+                'has_key' => isset($validatedData['containers']),
+                'count' => isset($validatedData['containers']) ? count($validatedData['containers']) : 0,
+                'data' => $validatedData['containers'] ?? []
             ]);
-        }
+            
+            $shipment = $this->oceanImportService->store($validatedData);
+            
+            \Log::info('Shipment Created:', ['id' => $shipment->id, 'containers_count' => $shipment->containers()->count()]);
+            \Log::info('=== Ocean Import Store END ===');
 
-        return redirect()->route('ocean-import.edit', $shipment->id)
-            ->with('success', 'Shipment created successfully.');
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'id' => $shipment->id,
+                    'file_no' => $shipment->file_no,
+                    'message' => 'Shipment created successfully.'
+                ]);
+            }
+
+            return redirect()->route('ocean-import.edit', $shipment->id)
+                ->with('success', 'Shipment created successfully.');
+                
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('Ocean Import Store - Database Error:', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode()
+            ]);
+            
+            // Handle duplicate entry errors
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $errorMessage = 'This record already exists. ';
+                
+                // Check which field is duplicate
+                if (strpos($e->getMessage(), 'file_no') !== false) {
+                    $errorMessage .= 'File No "' . ($request->file_no ?? '') . '" is already used.';
+                } elseif (strpos($e->getMessage(), 'mbl_no') !== false) {
+                    $errorMessage .= 'MBL No "' . ($request->mbl_no ?? '') . '" is already used.';
+                } elseif (strpos($e->getMessage(), 'container_no') !== false) {
+                    $errorMessage .= 'One or more container numbers are already used.';
+                } elseif (strpos($e->getMessage(), 'hbl_no') !== false) {
+                    $errorMessage .= 'One or more HBL numbers are already used.';
+                } else {
+                    $errorMessage .= 'Please check your entries and try again.';
+                }
+                
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMessage
+                    ], 422);
+                }
+                
+                return back()->withInput()->with('error', $errorMessage);
+            }
+            
+            // Handle foreign key constraint errors
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false || strpos($e->getMessage(), 'Cannot add or update a child row') !== false) {
+                $errorMessage = 'Invalid reference: One or more related records do not exist. Please check your selections.';
+                
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMessage
+                    ], 422);
+                }
+                
+                return back()->withInput()->with('error', $errorMessage);
+            }
+            
+            // Generic database error
+            $errorMessage = 'Unable to save the shipment. Please check your data and try again.';
+            
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage
+                ], 500);
+            }
+            
+            return back()->withInput()->with('error', $errorMessage);
+            
+        } catch (\Exception $e) {
+            \Log::error('Ocean Import Store - General Error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $errorMessage = 'An unexpected error occurred. Please try again or contact support if the problem persists.';
+            
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage
+                ], 500);
+            }
+            
+            return back()->withInput()->with('error', $errorMessage);
+        }
     }
 
     public function edit(OceanImport $oceanImport)
@@ -325,9 +403,55 @@ class OceanImportController extends Controller
     {
         $this->authorize('update', $oceanImport);
 
-        $this->oceanImportService->update($oceanImport, $request->validated());
+        try {
+            $this->oceanImportService->update($oceanImport, $request->validated());
 
-        return back()->with('success', 'Shipment updated successfully.');
+            return back()->with('success', 'Shipment updated successfully.');
+            
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('Ocean Import Update - Database Error:', [
+                'id' => $oceanImport->id,
+                'error' => $e->getMessage(),
+                'code' => $e->getCode()
+            ]);
+            
+            // Handle duplicate entry errors
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $errorMessage = 'This record already exists. ';
+                
+                // Check which field is duplicate
+                if (strpos($e->getMessage(), 'file_no') !== false) {
+                    $errorMessage .= 'File No "' . ($request->file_no ?? '') . '" is already used by another shipment.';
+                } elseif (strpos($e->getMessage(), 'mbl_no') !== false) {
+                    $errorMessage .= 'MBL No "' . ($request->mbl_no ?? '') . '" is already used by another shipment.';
+                } elseif (strpos($e->getMessage(), 'container_no') !== false) {
+                    $errorMessage .= 'One or more container numbers are already used.';
+                } elseif (strpos($e->getMessage(), 'hbl_no') !== false) {
+                    $errorMessage .= 'One or more HBL numbers are already used.';
+                } else {
+                    $errorMessage .= 'Please check your entries and try again.';
+                }
+                
+                return back()->withInput()->with('error', $errorMessage);
+            }
+            
+            // Handle foreign key constraint errors
+            if (strpos($e->getMessage(), 'foreign key constraint') !== false || strpos($e->getMessage(), 'Cannot add or update a child row') !== false) {
+                return back()->withInput()->with('error', 'Invalid reference: One or more related records do not exist. Please check your selections.');
+            }
+            
+            // Generic database error
+            return back()->withInput()->with('error', 'Unable to update the shipment. Please check your data and try again.');
+            
+        } catch (\Exception $e) {
+            \Log::error('Ocean Import Update - General Error:', [
+                'id' => $oceanImport->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withInput()->with('error', 'An unexpected error occurred. Please try again or contact support if the problem persists.');
+        }
     }
 
     public function mblList(Request $request)
