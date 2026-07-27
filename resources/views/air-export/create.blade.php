@@ -92,34 +92,6 @@
                 showConnectingFlight: false,
                 hawbs: [],
                 
-                init() {
-                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
-                    console.log('Init - Shipment ID:', shipmentId);
-                    
-                    // Check URL for tab parameter
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const tabParam = urlParams.get('tab');
-                    if (tabParam) {
-                        this.activeTab = tabParam;
-                        console.log('Tab from URL:', tabParam);
-                    }
-                    
-                    // Watch for tab changes - fetch work orders EVERY TIME workorder tab opens
-                    this.$watch('activeTab', (newTab) => {
-                        console.log('Tab changed to:', newTab);
-                        if (newTab === 'workorder' && shipmentId) {
-                            console.log('Calling fetchWorkOrders...');
-                            this.fetchWorkOrders();
-                        }
-                    });
-                    
-                    // If already on workorder tab on page load, fetch immediately
-                    if (this.activeTab === 'workorder' && shipmentId) {
-                        console.log('Already on workorder tab, fetching...');
-                        this.fetchWorkOrders();
-                    }
-                },
-                
                 form: {
                     file_no: '{{ isset($airExport) ? $airExport->file_no : "MAE-" . date("YmdHis") }}',
                     mawb_no: '{{ isset($airExport) ? $airExport->mawb_no : "" }}',
@@ -247,7 +219,6 @@
                 },
                 init() {
                     const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
-                    console.log('Init - Shipment ID:', shipmentId);
                     
                     // Load existing HAWBs if any
                     @if(isset($airExport) && $airExport->hbls->count() > 0)
@@ -290,13 +261,35 @@
                                 'mark' => $hbl->mark ?? '',
                                 'description' => $hbl->description ?? '',
                                 'remark' => $hbl->remark ?? '',
+                                'commodities' => [],
                             ];
                         })) !!};
                     @else
                         if(this.hawbs.length === 0) this.addHawb();
                     @endif
+                    
                     if(window.location.search.includes('load_from_quotation=true')) {
                         this.showQuoteModal = true;
+                    }
+                    
+                    // Work Order Tab Logic
+                    // Check URL for tab parameter
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const tabParam = urlParams.get('tab');
+                    if (tabParam) {
+                        this.activeTab = tabParam;
+                    }
+                    
+                    // Watch for tab changes - fetch work orders EVERY TIME workorder tab opens
+                    this.$watch('activeTab', (newTab) => {
+                        if (newTab === 'workorder' && shipmentId) {
+                            this.fetchWorkOrders();
+                        }
+                    });
+                    
+                    // If already on workorder tab on page load, fetch immediately
+                    if (this.activeTab === 'workorder' && shipmentId) {
+                        this.fetchWorkOrders();
                     }
                 },
                 closeQuoteModal() {
@@ -480,12 +473,20 @@
                         return;
                     }
                     
-                    if (!confirm(`Are you sure you want to delete ${this.selectedWorkOrders.length} work order(s)?`)) {
+                    const count = this.selectedWorkOrders.length;
+                    if (!confirm(`Are you sure you want to delete ${count} work order(s)?\n\nThis action cannot be undone.`)) {
                         return;
+                    }
+                    
+                    // Show loading state
+                    this.loadingWorkOrders = true;
+                    if (typeof showToast === 'function') {
+                        showToast('info', `Deleting ${count} work order(s)...`);
                     }
                     
                     let successCount = 0;
                     let failCount = 0;
+                    const failedWorkOrders = [];
                     
                     for (const workOrderId of this.selectedWorkOrders) {
                         try {
@@ -502,23 +503,27 @@
                                 successCount++;
                             } else {
                                 failCount++;
+                                failedWorkOrders.push(workOrderId);
                             }
                         } catch (error) {
                             failCount++;
-                        }
-                    }
-                    
-                    if (typeof showToast === 'function') {
-                        if (successCount > 0) {
-                            showToast('success', `${successCount} work order(s) deleted successfully`);
-                        }
-                        if (failCount > 0) {
-                            showToast('error', `Failed to delete ${failCount} work order(s)`);
+                            failedWorkOrders.push(workOrderId);
                         }
                     }
                     
                     this.selectedWorkOrders = [];
-                    this.fetchWorkOrders();
+                    await this.fetchWorkOrders();
+                    
+                    // Show results
+                    if (typeof showToast === 'function') {
+                        if (successCount > 0 && failCount === 0) {
+                            showToast('success', `✓ Successfully deleted ${successCount} work order(s)`);
+                        } else if (successCount > 0 && failCount > 0) {
+                            showToast('warning', `Deleted ${successCount} work order(s), but ${failCount} failed`);
+                        } else {
+                            showToast('error', `Failed to delete ${failCount} work order(s)`);
+                        }
+                    }
                 },
                 
                 toggleWorkOrder(workOrderId) {
@@ -1383,20 +1388,22 @@
                         </div>
                         <div class="portlet-body" style="padding: 10px;">
                             <div style="background: #eef1f5; padding: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
-                                <div class="btn-group" style="display: flex; gap: 2px;">
-                                    <button type="button" class="btn-gofreight" style="background: #32c5d2; padding: 4px 8px; border-radius: 2px;" @click="createWorkOrder">
+                                <div class="btn-group" style="display: flex; gap: 5px;">
+                                    <button type="button" class="btn-gofreight" style="background: #32c5d2; padding: 6px 12px; border-radius: 3px; font-size: 11px;" @click="createWorkOrder">
                                         <i class="fa fa-plus"></i> New Work Order
                                     </button>
-                                    <button type="button" class="btn-default-gf dark" style="background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 2px;" 
-                                            :class="selectedWorkOrders.length === 0 ? 'opacity-50' : ''" 
+                                    <button type="button" 
+                                            class="btn-default-gf" 
+                                            style="padding: 6px 12px; border-radius: 3px; font-size: 11px; transition: all 0.2s;"
+                                            :style="selectedWorkOrders.length === 0 ? 'opacity: 0.5; cursor: not-allowed; background: #f5f5f5; border: 1px solid #ddd; color: #999;' : 'background: #e74c3c; color: white; border: 1px solid #c0392b; cursor: pointer;'" 
                                             :disabled="selectedWorkOrders.length === 0"
                                             @click="bulkDeleteWorkOrders">
-                                        <i class="fa fa-trash"></i> Delete Selected
+                                        <i class="fa fa-trash"></i> Delete Selected <span x-show="selectedWorkOrders.length > 0" x-text="`(${selectedWorkOrders.length})`"></span>
                                     </button>
                                 </div>
-                                <div style="font-size: 10px; color: #666;">
-                                    <span x-show="workOrders.length > 0" x-text="`${workOrders.length} work order(s)`"></span>
-                                    <span x-show="selectedWorkOrders.length > 0" x-text="` | ${selectedWorkOrders.length} selected`"></span>
+                                <div style="font-size: 10px; color: #666; font-weight: 500;">
+                                    <span x-show="workOrders.length > 0" x-text="`Total: ${workOrders.length} work order(s)`"></span>
+                                    <span x-show="selectedWorkOrders.length > 0" style="color: #e74c3c; font-weight: 600;" x-text="` | ${selectedWorkOrders.length} selected`"></span>
                                 </div>
                             </div>
                             
@@ -1408,8 +1415,12 @@
                             <table class="table-custom" style="width: 100%; border-collapse: collapse; font-size: 10px;" x-show="!loadingWorkOrders">
                                 <thead>
                                     <tr style="background: #a0a8b3; color: #fff;">
-                                        <th style="width: 30px; text-align: center; border: 1px solid #e7ecf1;">
-                                            <input type="checkbox" @change="toggleAllWorkOrders" :checked="selectedWorkOrders.length === workOrders.length && workOrders.length > 0">
+                                        <th style="width: 40px; text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
+                                            <input type="checkbox" 
+                                                   @change="toggleAllWorkOrders" 
+                                                   :checked="selectedWorkOrders.length === workOrders.length && workOrders.length > 0"
+                                                   style="cursor: pointer; width: 14px; height: 14px;"
+                                                   title="Select All">
                                         </th>
                                         <th style="text-align: center; border: 1px solid #e7ecf1;">W/O No.</th>
                                         <th style="text-align: center; border: 1px solid #e7ecf1;">Subject</th>
@@ -1431,9 +1442,16 @@
                                         </tr>
                                     </template>
                                     <template x-for="(wo, index) in workOrders" :key="wo.id">
-                                        <tr style="border-bottom: 1px solid #e7ecf1;" :style="selectedWorkOrders.includes(wo.id) ? 'background: #f0f8ff;' : ''">
+                                        <tr style="border-bottom: 1px solid #e7ecf1; transition: all 0.2s;" 
+                                            :style="selectedWorkOrders.includes(wo.id) ? 'background: #e8f4fd; border-left: 3px solid #3b82f6;' : 'background: white;'"
+                                            @mouseenter="$el.style.backgroundColor = selectedWorkOrders.includes(wo.id) ? '#d6ebff' : '#f9fafb'"
+                                            @mouseleave="$el.style.backgroundColor = selectedWorkOrders.includes(wo.id) ? '#e8f4fd' : 'white'">
                                             <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
-                                                <input type="checkbox" :value="wo.id" :checked="selectedWorkOrders.includes(wo.id)" @change="toggleWorkOrder(wo.id)">
+                                                <input type="checkbox" 
+                                                       :value="wo.id" 
+                                                       :checked="selectedWorkOrders.includes(wo.id)" 
+                                                       @change="toggleWorkOrder(wo.id)"
+                                                       style="cursor: pointer; width: 14px; height: 14px;">
                                             </td>
                                             <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
                                                 <a :href="`/ocean-export/work-order/${wo.id}/edit?source=air_export&source_id={{ isset($airExport) ? $airExport->id : '' }}`" 
