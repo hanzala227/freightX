@@ -1,6 +1,126 @@
 <x-layout>
     @push('styles')
     <x-list-styles />
+    <style>
+        /* Filter Select Styling (not in list-styles) */
+        .filter-select {
+            width: 100%;
+            height: 18px;
+            border: 1px solid #93c5fd;
+            font-size: 9px;
+            border-radius: 2px;
+            padding: 0 3px;
+            box-sizing: border-box;
+            outline: none;
+            background: #fff;
+            color: #334155;
+        }
+        .filter-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px rgba(59,130,246,0.2);
+        }
+        
+        /* Button Group Styling - Better Alignment */
+        .btn-group {
+            display: inline-flex;
+            gap: 0;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .btn-group .btn-tool:not(:first-child) {
+            border-left: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-group .btn-tool {
+            border-radius: 0;
+            margin: 0;
+        }
+        
+        .btn-group .btn-tool:first-child {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .btn-group .btn-tool:last-child {
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .portlet-tool {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        /* Mobile Responsive Enhancements */
+        @media (max-width: 768px) {
+            .page-content { 
+                padding: 2px !important; 
+                overflow-x: hidden !important;
+            }
+            .portlet.light { 
+                margin: 0 !important; 
+                border-radius: 0 !important; 
+                overflow: hidden !important;
+            }
+            
+            .portlet-title { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                padding: 6px !important;
+                gap: 6px;
+            }
+            .portlet-title .caption { width: 100%; }
+            .portlet-title .actions { 
+                width: 100%; 
+                flex-wrap: wrap; 
+                gap: 3px !important;
+            }
+            
+            .portlet-tool { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                padding: 6px !important;
+                gap: 6px !important;
+            }
+            .portlet-tool > div { width: 100%; }
+            
+            .btn-group { 
+                width: 100%; 
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            
+            .grid-container { 
+                width: 100% !important;
+                overflow: hidden !important;
+            }
+            
+            .grid-wrapper { 
+                width: 100% !important;
+                height: calc(100vh - 350px) !important;
+                min-height: 200px !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            
+            .grid-table { 
+                font-size: 8px !important;
+                min-width: 1200px !important;
+            }
+            
+            .grid-table th, .grid-table td { 
+                padding: 2px 4px !important;
+                height: 22px !important;
+            }
+        }
+    </style>
     @endpush
 
     {{-- ═══════════════════════ TOAST CONTAINER ═══════════════════════ --}}
@@ -75,24 +195,22 @@
 
             {{-- ── TOOLBAR ── --}}
             <div class="portlet-tool">
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <div class="btn-group">
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    <div class="btn-group" style="display:flex;gap:0;">
                         <a class="btn-tool green" href="/air-export/create" title="New MAWB" target="_blank">
                             <i class="fa fa-plus"></i>
                         </a>
-                        <button class="btn-tool" id="btn-delete" disabled title="Delete Selected" onclick="confirmDelete()">
-                            <i class="fa fa-trash"></i>
-                        </button>
+                        <button class="btn-tool" id="btn-delete" disabled title="Delete selected" onclick="confirmDelete()"><i class="fa fa-trash"></i></button>
                     </div>
-                    <div class="btn-group">
-                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 12px;" onclick="blockSelected()">Block</button>
-                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 12px;" onclick="unblockSelected()">Unblock</button>
+                    <div class="btn-group" style="display:flex;gap:0;">
+                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 10px;" onclick="blockSelected()">Block</button>
+                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 10px;" onclick="unblockSelected()">Unblock</button>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <i class="fa fa-search" style="font-size:10px;color:#94a3b8;"></i>
-                    <input type="text" id="quick-search" class="input-inline" style="width:160px;"
-                           placeholder="Quick search..." value="{{ request('search') }}"
+                    <input type="text" id="quick-search" class="input-inline" style="width:150px;"
+                           placeholder="Quick search…" value="{{ request('search') }}"
                            oninput="quickSearch(this.value)">
                 </div>
             </div>
@@ -120,46 +238,39 @@
                                 </tr>
 
                                 {{-- ── FILTER ROW (hidden by default) ── --}}
-                                <tr id="filter-row" style="display:none;" class="filter-row">
-                                    <td class="sticky-col" style="left:0;"></td>
-                                    <td class="sticky-col" style="left:25px;"></td>
-                                    <td class="sticky-col" style="left:60px;">
-                                        <select class="filter-select" data-col-idx="2" onchange="applyFilters()">
+                                <tr id="filter-row" style="display:none;background:#eff6ff;">
+                                    <td class="sticky-col" style="left:0;background:#eff6ff;"></td>
+                                    <td class="sticky-col" style="left:25px;background:#eff6ff;"></td>
+                                    <td class="sticky-col" style="left:60px;background:#eff6ff;">
+                                        <select class="filter-select" data-col-idx="2" onchange="applyFilters()" style="width:100%;">
                                             <option value="">All</option>
                                             <option value="available" {{ request('status') == 'available' ? 'selected' : '' }}>Available</option>
                                             <option value="assigned" {{ request('status') == 'assigned' ? 'selected' : '' }}>Assigned</option>
                                             <option value="blocked" {{ request('status') == 'blocked' ? 'selected' : '' }}>Blocked</option>
                                         </select>
                                     </td>
-                                    <td class="sticky-col" style="left:140px;"></td>
-                                    <td class="sticky-col" style="left:190px;">
-                                        <input class="filter-input" data-col-idx="4" placeholder="Waybill..." onkeyup="if(event.key==='Enter') applyFilters()">
+                                    <td class="sticky-col" style="left:140px;background:#eff6ff;"></td>
+                                    <td class="sticky-col" style="left:190px;background:#eff6ff;">
+                                        <input class="filter-input" data-col-idx="4" placeholder="Waybill…" oninput="applyFiltersTyping()" onkeyup="if(event.key==='Enter') applyFilters()" style="width:100%;">
                                     </td>
                                     <td>
-                                        <select class="filter-select" data-col-idx="5" onchange="applyFilters()">
+                                        <select class="filter-select" data-col-idx="5" onchange="applyFilters()" style="width:100%;">
                                             <option value="">All Carriers</option>
                                             @foreach($carriers as $c)
                                                 <option value="{{ $c->id }}" {{ request('carrier_id') == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td><input class="filter-input" data-col-idx="6" placeholder="File No..." onkeyup="if(event.key==='Enter') applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="6" placeholder="File No…" oninput="applyFiltersTyping()" onkeyup="if(event.key==='Enter') applyFilters()" style="width:100%;"></td>
                                     <td>
-                                        <select class="filter-select" data-col-idx="7" onchange="applyFilters()">
+                                        <select class="filter-select" data-col-idx="7" onchange="applyFilters()" style="width:100%;">
                                             <option value="">All Offices</option>
                                             @foreach($offices as $o)
                                                 <option value="{{ $o->id }}" {{ request('office_id') == $o->id ? 'selected' : '' }}>{{ $o->name }}</option>
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td colspan="2">
-                                        <button class="btn-tool green" onclick="applyFilters()" style="height:18px;padding:0 6px;font-size:9px;">
-                                            <i class="fa fa-search"></i>
-                                        </button>
-                                        <a href="{{ url()->current() }}" class="btn-tool" style="height:18px;padding:0 6px;font-size:9px;" target="_blank">
-                                            <i class="fa fa-undo"></i>
-                                        </a>
-                                    </td>
+                                    <td colspan="2"></td>
                                 </tr>
                             </thead>
 
@@ -369,23 +480,39 @@
         }
     }
 
-    function applyFilters() {
+    function applyFiltersTyping() {
         clearTimeout(filterDebounce);
         filterDebounce = setTimeout(function() {
-            var url = new URL(window.location.href);
-            url.search = '';
-            // Collect filter values
-            var search = document.getElementById('quick-search')?.value || '';
-            if (search) url.searchParams.set('search', search);
-            var status = document.querySelector('#filter-row select[data-col-idx="2"]')?.value || '';
-            if (status) url.searchParams.set('status', status);
-            var carrier = document.querySelector('#filter-row select[data-col-idx="5"]')?.value || '';
-            if (carrier) url.searchParams.set('carrier_id', carrier);
-            var office = document.querySelector('#filter-row select[data-col-idx="7"]')?.value || '';
-            if (office) url.searchParams.set('office_id', office);
-            window.history.replaceState({}, '', url.toString());
-            updateGrid(url.toString());
-        }, 300);
+            applyFilters();
+        }, 500);
+    }
+    
+    function applyFilters() {
+        clearTimeout(filterDebounce);
+        var url = new URL(window.location.href);
+        url.search = '';
+        
+        // Collect filter values
+        var search = document.getElementById('quick-search')?.value?.trim() || '';
+        if (search) url.searchParams.set('search', search);
+        
+        var status = document.querySelector('#filter-row select[data-col-idx="2"]')?.value || '';
+        if (status) url.searchParams.set('status', status);
+        
+        var waybill = document.querySelector('#filter-row input[data-col-idx="4"]')?.value?.trim() || '';
+        if (waybill) url.searchParams.set('search', waybill); // Use 'search' param for waybill
+        
+        var carrier = document.querySelector('#filter-row select[data-col-idx="5"]')?.value || '';
+        if (carrier) url.searchParams.set('carrier_id', carrier);
+        
+        var fileNo = document.querySelector('#filter-row input[data-col-idx="6"]')?.value?.trim() || '';
+        if (fileNo) url.searchParams.set('search', fileNo); // Use 'search' param for file_no
+        
+        var office = document.querySelector('#filter-row select[data-col-idx="7"]')?.value || '';
+        if (office) url.searchParams.set('office_id', office);
+        
+        window.history.replaceState({}, '', url.toString());
+        updateGrid(url.toString());
     }
 
     /* ---------- Config ---------- */
@@ -565,11 +692,11 @@
     }
 
     /* ---------- Bulk Delete / Block / Unblock ---------- */
-    function bulkAction(url, successMsg) {
+    function blockSelected() {
         var ids = getSelectedIds();
         if (ids.length === 0) { showToast('error', 'No items selected'); return; }
-        if (!confirm('Are you sure you want to perform this action on ' + ids.length + ' item(s)?')) return;
-        fetch(url, {
+        
+        fetch('/air-export/bulk-block', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
             body: JSON.stringify({ ids: ids })
@@ -580,17 +707,70 @@
         })
         .then(function(d) {
             if (d.success) {
-                showToast('success', successMsg || d.message || 'Action completed.');
-                updateGrid(window.location.href);
+                // Update status badges for blocked items
+                ids.forEach(function(id) {
+                    var row = document.getElementById('stock-row-' + id);
+                    if (row) {
+                        var statusCell = row.querySelector('td:nth-child(3)');
+                        if (statusCell) {
+                            statusCell.innerHTML = '<span class="badge-status bg-red">BLOCKED</span>';
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message || 'Items blocked.');
             } else {
-                showToast('error', d.message || 'Action failed.');
+                showToast('error', d.message || 'Block failed.');
             }
         })
-        .catch(function(e) { showToast('error', 'Request failed: ' + e.message); });
+        .catch(function(e) { showToast('error', 'Block request failed: ' + e.message); });
     }
-
-    function blockSelected() { bulkAction('/air-export/bulk-block', 'Items blocked.'); }
-    function unblockSelected() { bulkAction('/air-export/bulk-unblock', 'Items unblocked.'); }
+    
+    function unblockSelected() {
+        var ids = getSelectedIds();
+        if (ids.length === 0) { showToast('error', 'No items selected'); return; }
+        
+        fetch('/air-export/bulk-unblock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+            body: JSON.stringify({ ids: ids })
+        })
+        .then(function(r) {
+            if (!r.ok) { throw new Error('Server returned ' + r.status); }
+            return r.json();
+        })
+        .then(function(d) {
+            if (d.success) {
+                // Update status badges for unblocked items (restore to available)
+                ids.forEach(function(id) {
+                    var row = document.getElementById('stock-row-' + id);
+                    if (row) {
+                        var statusCell = row.querySelector('td:nth-child(3)');
+                        var fileNo = row.getAttribute('data-file');
+                        if (statusCell) {
+                            // Check if assigned or available
+                            if (fileNo && fileNo.trim() !== '') {
+                                statusCell.innerHTML = '<span class="badge-status bg-orange">ASSIGNED</span>';
+                            } else {
+                                statusCell.innerHTML = '<span class="badge-status bg-green">AVAILABLE</span>';
+                            }
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message || 'Items unblocked.');
+            } else {
+                showToast('error', d.message || 'Unblock failed.');
+            }
+        })
+        .catch(function(e) { showToast('error', 'Unblock request failed: ' + e.message); });
+    }
 
     /* ---------- Copy Row ---------- */
     function copyRow(id) {
