@@ -110,6 +110,11 @@
         .cursor-not-allowed { cursor: not-allowed; }
         .main-grid { display: flex; flex-direction: column; gap: 4px; }
         .btn-gofreight.opacity-50 { pointer-events: none; }
+        
+        /* Dropdown Item Styles */
+        .dropdown-item { display: flex; align-items: center; padding: 8px 14px; font-size: 10px; font-weight: 600; color: #334155; text-decoration: none; cursor: pointer; transition: all 0.2s; }
+        .dropdown-item:hover { background: #f8fafc; color: #3b82f6; }
+        .dropdown-item i { color: inherit; }
     </style>
     @endpush
 
@@ -1054,20 +1059,53 @@
                 <div class="portlet-title">
                     <div class="caption caption-subject">
                         <span style="display: inline-block; width: 14px; height: 18px; background: #fff; clip-path: polygon(100% 0, 100% 66%, 50% 100%, 0 66%, 0 0); margin-right: 5px;"></span>
-                        MB/L
+                        TRUCKING ACCOUNTING
                     </div>
-                    <div>
-                        <button type="button" class="btn-default-gf"><i class="fa fa-info"></i></button>
-                        <button type="button" class="btn-default-gf"><i class="fa fa-cogs"></i> Tools <i class="fa fa-angle-down"></i></button>
+                    <div style="display: flex; gap: 5px; position: relative;">
+                        <button type="button" class="btn-default-gf" style="height: 22px; padding: 0 8px; font-size: 10px;" @click="toolsOpen = !toolsOpen">
+                            <i class="fa fa-cogs"></i> TOOLS <i class="fa fa-angle-down"></i>
+                        </button>
+                        <div x-show="toolsOpen" @click.away="toolsOpen = false" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #ddd; z-index: 100; min-width: 220px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); border-radius: 2px;">
+                            <a href="#" @click.prevent="toolsOpen = false; toggleBlock()" class="dropdown-item">
+                                <i class="fa fa-ban" style="width: 16px; margin-right: 8px;"></i> 
+                                <span x-text="form.is_blocked ? 'UNBLOCK' : 'BLOCK'"></span>
+                            </a>
+                            <a href="#" @click.prevent="toolsOpen = false; generatePickupDeliveryOrder()" class="dropdown-item">
+                                <i class="fa fa-truck" style="width: 16px; margin-right: 8px;"></i> PICKUP / DELIVERY ORDER
+                            </a>
+                            <a href="#" @click.prevent="toolsOpen = false; printBOL()" class="dropdown-item">
+                                <i class="fa fa-file-pdf-o" style="width: 16px; margin-right: 8px;"></i> BOL PRINT
+                            </a>
+                            <div style="height: 1px; background: #eee; margin: 4px 0;"></div>
+                            <a href="#" @click.prevent="toolsOpen = false; generateProfitReportSummary()" class="dropdown-item">
+                                <i class="fa fa-chart-bar" style="width: 16px; margin-right: 8px;"></i> PROFIT REPORT - SUMMARY
+                            </a>
+                            <a href="#" @click.prevent="toolsOpen = false; generateProfitReportDetail()" class="dropdown-item">
+                                <i class="fa fa-chart-line" style="width: 16px; margin-right: 8px;"></i> PROFIT REPORT - DETAIL
+                            </a>
+                            <div style="height: 1px; background: #eee; margin: 4px 0;"></div>
+                            <a href="#" @click.prevent="toolsOpen = false; viewCargoManifestStatus()" class="dropdown-item">
+                                <i class="fa fa-list-alt" style="width: 16px; margin-right: 8px;"></i> CARGO MANIFEST STATUS
+                            </a>
+                            <a href="#" @click.prevent="toolsOpen = false; openInTrackTrace()" class="dropdown-item">
+                                <i class="fa fa-map-marker-alt" style="width: 16px; margin-right: 8px;"></i> OPEN IN TRACK-TRACE
+                            </a>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="portlet-body">
-                    <div style="display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;">
-                        <button type="button" class="btn-gf-inline" style="background:#4b77be;margin:0;padding:4px 10px;border-radius:3px;" @click="openChargeModal('AR')">Create Invoice <i class="fa fa-angle-down"></i></button>
-                        <button type="button" class="btn-gf-inline" style="background:#4b77be;margin:0;padding:4px 10px;border-radius:3px;" @click="openDCNoteModal()">Create D/C Note</button>
-                        <button type="button" class="btn-gf-inline" style="background:#26c281;margin:0;padding:4px 10px;border-radius:3px;" @click="createInvoiceFromCharges()">Invoice All Uninvoiced</button>
-                        <button type="button" class="btn-gf-inline" style="background:#4b77be;margin:0;padding:4px 10px;border-radius:3px;" @click="openChargeModal('AP')">Create Cost <i class="fa fa-angle-down"></i></button>
+                    <!-- Accounting Navigation Buttons -->
+                    <div style="display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <button type="button" @click.prevent="createInvoice('AR')" class="btn-gofreight" style="background: #32c5d2; border: none; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.2s;">
+                            <i class="fa fa-plus"></i> ORIGIN REVENUE (INVOICE/AR)
+                        </button>
+                        <button type="button" @click.prevent="createInvoice('DC')" class="btn-gofreight" style="background: #32c5d2; border: none; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.2s;">
+                            <i class="fa fa-plus"></i> DESTINATION REVENUE/COST (D/C NOTE)
+                        </button>
+                        <button type="button" @click.prevent="createInvoice('AP')" class="btn-gofreight" style="background: #32c5d2; border: none; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.2s;">
+                            <i class="fa fa-plus"></i> ORIGIN COST (AP)
+                        </button>
                     </div>
 
                     <table class="memo-table" style="text-align: center; margin-bottom: 15px;">
@@ -1564,6 +1602,7 @@
                 saved: typeof truckShipmentSaved !== "undefined" ? truckShipmentSaved : @json(isset($truckShipment) ? true : false),
                 errors: {},
                 chargeStep: 1,
+                toolsOpen: false,
                 showMore: false,
                 loadFromQuotation: false,
                 
@@ -1802,6 +1841,7 @@
                     is_delivered: {{ isset($truckShipment) && $truckShipment->is_delivered ? 'true' : (isset($copyShipment) && $copyShipment->is_delivered ? 'true' : 'false') }},
                     delivered_date: '{{ isset($truckShipment) && $truckShipment->delivered_date ? \Carbon\Carbon::parse($truckShipment->delivered_date)->format("Y-m-d") : (isset($copyShipment) && $copyShipment->delivered_date ? \Carbon\Carbon::parse($copyShipment->delivered_date)->format("Y-m-d") : "") }}',
                     is_ecommerce: {{ isset($truckShipment) && $truckShipment->is_ecommerce ? 'true' : (isset($copyShipment) && $copyShipment->is_ecommerce ? 'true' : 'false') }},
+                    is_blocked: {{ isset($truckShipment) && $truckShipment->is_blocked ? 'true' : (isset($copyShipment) && $copyShipment->is_blocked ? 'true' : 'false') }},
                     
                     truck_no: '{{ isset($truckShipment) ? $truckShipment->truck_no : (isset($copyShipment) ? $copyShipment->truck_no : "") }}',
                     driver_name: '{{ isset($truckShipment) ? $truckShipment->driver_name : (isset($copyShipment) ? $copyShipment->driver_name : "") }}',
@@ -2154,6 +2194,160 @@
                     @endif
                 },
                 
+                // ===== Accounting Navigation Methods =====
+                createInvoice(type) {
+                    // Check if shipment is saved
+                    @if(isset($truckShipment))
+                        const shipmentId = {{ $truckShipment->id }};
+                    @else
+                        const shipmentId = null;
+                    @endif
+                    
+                    if (!shipmentId) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Please save the shipment first before creating invoices');
+                        } else {
+                            alert('Please save the shipment first before creating invoices');
+                        }
+                        return;
+                    }
+                    
+                    // Define routes for each invoice type
+                    const routes = {
+                        'AR': `/accounting/invoice/create?type=AR&shipment_type=truck_shipment&shipment_id=${shipmentId}`,
+                        'DC': `/accounting/invoice/create?type=DC&shipment_type=truck_shipment&shipment_id=${shipmentId}`,
+                        'AP': `/accounting/invoice/create?type=AP&shipment_type=truck_shipment&shipment_id=${shipmentId}`
+                    };
+
+                    // Open invoice creation page in new tab
+                    if (routes[type]) {
+                        window.open(routes[type], '_blank');
+                        if (typeof showToast === 'function') {
+                            showToast('success', `Opening ${type} invoice creation page...`);
+                        }
+                    } else {
+                        if (typeof showToast === 'function') {
+                            showToast('info', `${type} invoice creation - Coming soon`);
+                        } else {
+                            alert(`${type} invoice creation - Coming soon`);
+                        }
+                    }
+                },
+                
+                // ===== Tools Dropdown Methods =====
+                toggleBlock() {
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    const currentStatus = this.form.is_blocked || false;
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    fetch(`/truck/${shipmentId}/toggle-block`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken || '',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ is_blocked: !currentStatus })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.form.is_blocked = data.is_blocked;
+                            if (typeof showToast === 'function') {
+                                showToast('success', data.is_blocked ? 'Shipment blocked successfully' : 'Shipment unblocked successfully');
+                            } else {
+                                alert(data.is_blocked ? 'Shipment blocked' : 'Shipment unblocked');
+                            }
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Toggle block failed:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to update block status');
+                        }
+                    });
+                    @else
+                    alert('Please save the shipment first');
+                    @endif
+                },
+                
+                generatePickupDeliveryOrder() {
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    window.open(`/truck/${shipmentId}/pickup-delivery-order`, '_blank');
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Opening Pickup/Delivery Order...');
+                    }
+                    @else
+                    alert('Please save the shipment first before generating documents');
+                    @endif
+                },
+                
+                printBOL() {
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    window.open(`/truck/${shipmentId}/bol-print`, '_blank');
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Opening BOL Print...');
+                    }
+                    @else
+                    alert('Please save the shipment first before printing documents');
+                    @endif
+                },
+                
+                generateProfitReportSummary() {
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    window.open(`/truck/${shipmentId}/profit-report-summary`, '_blank');
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Generating Profit Report - Summary...');
+                    }
+                    @else
+                    alert('Please save the shipment first before generating reports');
+                    @endif
+                },
+                
+                generateProfitReportDetail() {
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    window.open(`/truck/${shipmentId}/profit-report-detail`, '_blank');
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Generating Profit Report - Detail...');
+                    }
+                    @else
+                    alert('Please save the shipment first before generating reports');
+                    @endif
+                },
+                
+                viewCargoManifestStatus() {
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    window.open(`/truck/${shipmentId}/cargo-manifest-status`, '_blank');
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Opening Cargo Manifest Status...');
+                    }
+                    @else
+                    alert('Please save the shipment first');
+                    @endif
+                },
+                
+                openInTrackTrace() {
+                    @if(isset($truckShipment))
+                    const fileNo = '{{ $truckShipment->file_no ?? '' }}';
+                    if (fileNo) {
+                        window.open(`/track-trace?file_no=${encodeURIComponent(fileNo)}`, '_blank');
+                        if (typeof showToast === 'function') {
+                            showToast('info', 'Opening in Track-Trace...');
+                        }
+                    } else {
+                        alert('File number not available');
+                    }
+                    @else
+                    alert('Please save the shipment first');
+                    @endif
+                },
+                
 openMemoModal() {
                     this.memoEditIndex = -1;
                     this.memoForm = { subject: '', content: '', has_alert: false };
@@ -2311,4 +2505,91 @@ openMemoModal() {
             }
         }
     </script>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Toast Notification System -->
+    <script>
+        function showToast(type, msg) {
+            const icons = { 
+                success: 'check-circle', 
+                error: 'times-circle', 
+                info: 'info-circle', 
+                warning: 'exclamation-triangle' 
+            };
+            
+            const container = document.getElementById('toast-container') || (() => {
+                const c = document.createElement('div');
+                c.id = 'toast-container';
+                c.className = 'toast-container';
+                document.body.appendChild(c);
+                return c;
+            })();
+            
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.innerHTML = '<i class="fa fa-' + (icons[type] || 'info-circle') + '"></i> ' + msg;
+            container.appendChild(t);
+            setTimeout(() => t.remove(), 7000);
+        }
+
+        // Show Laravel session messages as toasts
+        @if(session('success'))
+            showToast('success', '{{ session('success') }}');
+        @endif
+        @if(session('error'))
+            showToast('error', '{!! addslashes(session('error')) !!}');
+        @endif
+        @if(session('warning'))
+            showToast('warning', '{{ session('warning') }}');
+        @endif
+        @if($errors->any())
+            @foreach($errors->all() as $error)
+                showToast('error', '{!! addslashes($error) !!}');
+            @endforeach
+        @endif
+    </script>
+
+    <!-- Toast Notification Styles -->
+    <style>
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            min-width: 280px;
+            padding: 14px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 6.5s forwards;
+            pointer-events: all;
+        }
+        .toast i { font-size: 16px; }
+        .toast.success { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
+        .toast.error { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+        .toast.warning { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
+        .toast.info { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+        
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateX(400px); }
+        }
+    </style>
 </x-layout>

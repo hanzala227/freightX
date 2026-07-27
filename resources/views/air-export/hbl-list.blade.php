@@ -1,6 +1,108 @@
 <x-layout>
     @push('styles')
     <x-list-styles />
+    <style>
+        /* Button Group Styling - Better Alignment */
+        .btn-group {
+            display: inline-flex;
+            gap: 0;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .btn-group .btn-tool:not(:first-child) {
+            border-left: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-group .btn-tool {
+            border-radius: 0;
+            margin: 0;
+        }
+        
+        .btn-group .btn-tool:first-child {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .btn-group .btn-tool:last-child {
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .portlet-tool {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        /* Mobile Responsive Enhancements */
+        @media (max-width: 768px) {
+            .page-content { 
+                padding: 2px !important; 
+                overflow-x: hidden !important;
+            }
+            .portlet.light { 
+                margin: 0 !important; 
+                border-radius: 0 !important; 
+                overflow: hidden !important;
+            }
+            
+            .portlet-title { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                padding: 6px !important;
+                gap: 6px;
+            }
+            .portlet-title .caption { width: 100%; }
+            .portlet-title .actions { 
+                width: 100%; 
+                flex-wrap: wrap; 
+                gap: 3px !important;
+            }
+            
+            .portlet-tool { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                padding: 6px !important;
+                gap: 6px !important;
+            }
+            .portlet-tool > div { width: 100%; }
+            
+            .btn-group { 
+                width: 100%; 
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            
+            .grid-container { 
+                width: 100% !important;
+                overflow: hidden !important;
+            }
+            
+            .grid-wrapper { 
+                width: 100% !important;
+                height: calc(100vh - 350px) !important;
+                min-height: 200px !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            
+            .grid-table { 
+                font-size: 8px !important;
+                min-width: 1600px !important;
+            }
+            
+            .grid-table th, .grid-table td { 
+                padding: 2px 4px !important;
+                height: 22px !important;
+            }
+        }
+    </style>
     @endpush
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -100,33 +202,35 @@
 
             {{-- ── TOOLBAR ── --}}
             <div class="portlet-tool">
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <div class="btn-group">
-                        <button class="btn-tool" id="btn-delete" disabled title="Delete Selected" onclick="confirmDelete()">
-                            <i class="fa fa-trash"></i>
-                        </button>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    <div class="btn-group" style="display:flex;gap:0;">
+                        <button class="btn-tool" id="btn-delete" disabled title="Delete selected" onclick="confirmDelete()"><i class="fa fa-trash"></i></button>
+                    </div>
+                    <div class="btn-group" style="display:flex;gap:0;">
+                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 10px;" onclick="blockSelected()">Block</button>
+                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 10px;" onclick="unblockSelected()">Unblock</button>
                     </div>
                     <div class="btn-group">
-                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 12px;" onclick="blockSelected()">Block</button>
-                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 12px;" onclick="unblockSelected()">Unblock</button>
+                        <select class="select-tool" id="bulk-sales-select" disabled onchange="onBulkSalesChange(this)">
+                            <option value="">Change Sales</option>
+                            @foreach($users as $user)
+                                <option value="{{ $user->id }}">{{ $user->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
-                    <select class="select-tool" id="bulk-sales-select" disabled onchange="onBulkSalesChange(this)">
-                        <option value="">Change Sales</option>
-                        @foreach($users as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                        @endforeach
-                    </select>
-                    <select class="select-tool" id="bulk-op-select" disabled onchange="onBulkOpChange(this)">
-                        <option value="">Change OP</option>
-                        @foreach($users as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                        @endforeach
-                    </select>
+                    <div class="btn-group">
+                        <select class="select-tool" id="bulk-op-select" disabled onchange="onBulkOpChange(this)">
+                            <option value="">Change OP</option>
+                            @foreach($users as $user)
+                                <option value="{{ $user->id }}">{{ $user->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <i class="fa fa-search" style="font-size:10px;color:#94a3b8;"></i>
-                    <input type="text" id="quick-search" class="input-inline" style="width:160px;"
-                           placeholder="Quick search..." oninput="quickSearch(this.value)" value="{{ request('search') }}">
+                    <input type="text" id="quick-search" class="input-inline" style="width:150px;"
+                           placeholder="Quick search…" oninput="quickSearch(this.value)" value="{{ request('search') }}">
                 </div>
             </div>
 
@@ -140,9 +244,10 @@
                                     <th class="sticky-col sticky-col-header" data-col="check"  style="width:25px;text-align:center;">
                                         <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" title="Select All">
                                     </th>
-                                    <th class="sticky-col sticky-col-header" data-col="hawb_no" style="width:120px;left:25px;">HAWB No.</th>
-                                    <th class="sticky-col sticky-col-header" data-col="color"    style="width:28px;left:145px;text-align:center;">CR</th>
-                                    <th class="sticky-col sticky-col-header" data-col="file_no"  style="width:120px;left:173px;">File No.</th>
+                                    <th class="sticky-col sticky-col-header" data-col="lock" style="width:25px;left:25px;text-align:center;"><i class="fa fa-lock"></i></th>
+                                    <th class="sticky-col sticky-col-header" data-col="hawb_no" style="width:120px;left:50px;">HAWB No.</th>
+                                    <th class="sticky-col sticky-col-header" data-col="color"    style="width:28px;left:170px;text-align:center;">CR</th>
+                                    <th class="sticky-col sticky-col-header" data-col="file_no"  style="width:120px;left:198px;">File No.</th>
                                     <th data-col="customer"   style="width:150px;">Customer</th>
                                     <th data-col="shipper"    style="width:150px;">Shipper</th>
                                     <th data-col="consignee"  style="width:150px;">Consignee</th>
@@ -156,16 +261,17 @@
                                 </tr>
 
                                 {{-- ── FILTER ROW ── --}}
-                                <tr id="filter-row" style="display:none;">
-                                    <td class="sticky-col" style="left:0;"></td>
-                                    <td class="sticky-col" style="left:25px;"><input class="filter-input" data-col-idx="1" placeholder="HAWB…" oninput="applyFilters()"></td>
-                                    <td class="sticky-col" style="left:145px;"></td>
-                                    <td class="sticky-col" style="left:173px;"><input class="filter-input" data-col-idx="3" placeholder="File…" oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="4"  placeholder="Customer…" oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="5"  placeholder="Shipper…"   oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="6"  placeholder="Consignee…" oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="7"  placeholder="Dep…"       oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="8"  placeholder="Dest…"      oninput="applyFilters()"></td>
+                                <tr id="filter-row" style="display:none;background:#eff6ff;">
+                                    <td class="sticky-col" style="left:0;background:#eff6ff;"></td>
+                                    <td class="sticky-col" style="left:25px;background:#eff6ff;"></td>
+                                    <td class="sticky-col" style="left:50px;background:#eff6ff;"><input class="filter-input" data-col-idx="2" placeholder="HAWB…" oninput="applyFilters()" style="width:100%;"></td>
+                                    <td class="sticky-col" style="left:170px;background:#eff6ff;"></td>
+                                    <td class="sticky-col" style="left:198px;background:#eff6ff;"><input class="filter-input" data-col-idx="4" placeholder="File…" oninput="applyFilters()" style="width:100%;"></td>
+                                    <td><input class="filter-input" data-col-idx="5"  placeholder="Customer…" oninput="applyFilters()" style="width:100%;"></td>
+                                    <td><input class="filter-input" data-col-idx="6"  placeholder="Shipper…"   oninput="applyFilters()" style="width:100%;"></td>
+                                    <td><input class="filter-input" data-col-idx="7"  placeholder="Consignee…" oninput="applyFilters()" style="width:100%;"></td>
+                                    <td><input class="filter-input" data-col-idx="8"  placeholder="Dep…"       oninput="applyFilters()" style="width:100%;"></td>
+                                    <td><input class="filter-input" data-col-idx="9"  placeholder="Dest…"      oninput="applyFilters()" style="width:100%;"></td>
                                     <td colspan="5"></td>
                                 </tr>
                             </thead>
@@ -184,13 +290,26 @@
                                     <td class="sticky-col" style="width:25px;text-align:center;" onclick="event.stopPropagation()">
                                         <input type="checkbox" class="row-check" value="{{ $hbl->id }}" onchange="updateToolbar()">
                                     </td>
-                                    <td class="sticky-col" style="left:25px;font-weight:600;" onclick="event.stopPropagation()">
+                                    <td class="sticky-col" style="left:25px;text-align:center;" onclick="event.stopPropagation()">
+                                        @if($isBlocked)
+                                            <i class="fa fa-ban" 
+                                               style="cursor:pointer;color:#e74c3c;font-size:10px;" 
+                                               title="Blocked - Cannot be edited"
+                                               onclick="showToast('warning', 'This HBL is blocked. Unblock it first to make changes.')"></i>
+                                        @else
+                                            <i class="fa fa-unlock" 
+                                               style="cursor:pointer;color:#22c55e;font-size:10px;" 
+                                               title="Unlocked"
+                                               onclick="showToast('info', 'HBL is unlocked')"></i>
+                                        @endif
+                                    </td>
+                                    <td class="sticky-col" style="left:50px;font-weight:600;" onclick="event.stopPropagation()">
                                         <a href="/air-export/{{ $hbl->air_export_id }}/edit" class="col-link">{{ $hbl->hawb_no ?: '--' }}</a>
                                     </td>
-                                    <td class="sticky-col" style="left:145px;text-align:center;">
+                                    <td class="sticky-col" style="left:170px;text-align:center;">
                                         <span class="color-mark" style="background:{{ $hbl->color ?? '#94a3b8' }}" title="Click to change color" onclick="event.stopPropagation();openColorPicker({{ $hbl->id }}, '{{ $hbl->color ?? '' }}')"></span>
                                     </td>
-                                    <td class="sticky-col" style="left:173px;">
+                                    <td class="sticky-col" style="left:198px;">
                                         <a href="/air-export/{{ $hbl->air_export_id }}/edit" class="col-link">{{ $hbl->airExport->file_no ?? '--' }}</a>
                                     </td>
                                     <td>{{ $hbl->customer->name ?? '--' }}</td>
@@ -320,8 +439,8 @@
     }
 
     var FILTER_MAP = {
-        1: 'filter_hawb', 3: 'filter_file_no', 4: 'filter_customer',
-        5: 'filter_shipper', 6: 'filter_consignee', 7: 'filter_dep', 8: 'filter_dst'
+        2: 'filter_hawb', 4: 'filter_file_no', 5: 'filter_customer',
+        6: 'filter_shipper', 7: 'filter_consignee', 8: 'filter_dep', 9: 'filter_dst'
     };
 
     function applyFilters() {
@@ -359,7 +478,7 @@
     /* ================================================================
        CONFIG PANEL — column visibility
     ================================================================ */
-    var PINNED_COLS = ['check', 'hawb_no', 'color', 'file_no'];
+    var PINNED_COLS = ['check', 'lock', 'hawb_no', 'color', 'file_no'];
 
     function toggleConfig() {
         var panel = document.getElementById('config-panel');
@@ -434,23 +553,72 @@
     /* ================================================================
        BLOCK / UNBLOCK
     ================================================================ */
-    function blockSelected()   { bulkAction('/air-export/hbl-bulk-block',   'Blocked'); }
-    function unblockSelected() { bulkAction('/air-export/hbl-bulk-unblock', 'Unblocked'); }
-
-    function bulkAction(url, label) {
+    function blockSelected() {
         var ids = getSelectedIds();
         if (!ids.length) return;
-        fetch(url, {
+        
+        fetch('/air-export/hbl-bulk-block', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
             body: JSON.stringify({ ids: ids })
         })
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || label + ' failed.');
+            if (d.success) {
+                // Update lock icons for blocked HBLs
+                ids.forEach(function(id) {
+                    var row = document.getElementById('hbl-row-' + id);
+                    if (row) {
+                        var lockCell = row.querySelector('td:nth-child(2)');
+                        if (lockCell) {
+                            lockCell.innerHTML = '<i class="fa fa-ban" style="cursor:pointer;color:#e74c3c;font-size:10px;" title="Blocked - Cannot be edited" onclick="showToast(\'warning\', \'This HBL is blocked. Unblock it first to make changes.\')"></i>';
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message);
+            } else {
+                showToast('error', d.message || 'Block failed.');
+            }
         })
-        .catch(function() { showToast('error', label + ' failed.'); });
+        .catch(function() { showToast('error', 'Block failed.'); });
+    }
+    
+    function unblockSelected() {
+        var ids = getSelectedIds();
+        if (!ids.length) return;
+        
+        fetch('/air-export/hbl-bulk-unblock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
+            body: JSON.stringify({ ids: ids })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) {
+                // Update lock icons for unblocked HBLs (restore to unlocked)
+                ids.forEach(function(id) {
+                    var row = document.getElementById('hbl-row-' + id);
+                    if (row) {
+                        var lockCell = row.querySelector('td:nth-child(2)');
+                        if (lockCell) {
+                            lockCell.innerHTML = '<i class="fa fa-unlock" style="cursor:pointer;color:#22c55e;font-size:10px;" title="Unlocked" onclick="showToast(\'info\', \'HBL is unlocked\')"></i>';
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message);
+            } else {
+                showToast('error', d.message || 'Unblock failed.');
+            }
+        })
+        .catch(function() { showToast('error', 'Unblock failed.'); });
     }
 
     /* ================================================================
@@ -480,10 +648,16 @@
         if (!userId) { showToast('error', 'Please select a user.'); return; }
         var ids = getSelectedIds();
         if (!ids.length) { closeChangeUser(); return; }
+        
+        // Get the selected user name for display
+        var userSelect = document.getElementById('change-user-select');
+        var userName = userSelect.options[userSelect.selectedIndex].text;
+        
         var url = _changeMode === 'sales' ? '/air-export/hbl-bulk-change-sales' : '/air-export/hbl-bulk-change-op';
         var body = { ids: ids };
         if (_changeMode === 'sales') body.sales_person_id = userId;
         else body.op_id = userId;
+        
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
@@ -491,8 +665,26 @@
         })
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || 'Update failed.');
+            if (d.success) {
+                // Update the table cells without full refresh
+                var columnIndex = _changeMode === 'sales' ? 13 : 14; // Sales is column 13, OP is column 14 (after adding lock column)
+                ids.forEach(function(id) {
+                    var row = document.getElementById('hbl-row-' + id);
+                    if (row) {
+                        var cells = row.querySelectorAll('td');
+                        if (cells[columnIndex]) {
+                            cells[columnIndex].textContent = userName;
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message);
+            } else {
+                showToast('error', d.message || 'Update failed.');
+            }
         })
         .catch(function() { showToast('error', 'Failed to update.'); });
         closeChangeUser();
@@ -575,8 +767,18 @@
                 if (key) params.push(key + '=' + encodeURIComponent(inp.value.trim()));
             }
         });
-        if (params.length) window.location.href = '/air-export/hbl-export-csv?' + params.join('&');
-        else window.location.href = '/air-export/hbl-export-csv';
+        
+        // Create temporary anchor for download without page refresh
+        var url = '/air-export/hbl-export-csv' + (params.length ? '?' + params.join('&') : '');
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'hawb-list-' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        showToast('success', 'Export started. Your download will begin shortly.');
     }
 
     /* ================================================================
