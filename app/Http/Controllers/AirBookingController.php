@@ -301,37 +301,88 @@ class AirBookingController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function toggleLock(Request $request, $id)
+    {
+        $booking = AirBooking::findOrFail($id);
+        $request->validate(['is_locked' => 'required|boolean']);
+        $booking->update(['is_locked' => $request->is_locked]);
+        return response()->json([
+            'success' => true, 
+            'message' => 'Booking ' . ($request->is_locked ? 'locked' : 'unlocked') . ' successfully',
+            'is_locked' => $request->is_locked
+        ]);
+    }
+
     public function bulkConvert(Request $request)
     {
         $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:air_bookings,id']);
         $bookings = AirBooking::whereIn('id', $request->ids)->get();
-        $count = 0;
+        $converted = 0;
+        $failed = 0;
+        $errors = [];
+        
         foreach ($bookings as $b) {
-            $mawbNo = $b->booking_no;
-            $data = [
-                'file_no' => $mawbNo,
-                'mawb_no' => $mawbNo,
-                'booking_no' => $b->booking_no,
-                'carrier_id' => $b->carrier_id,
-                'shipper_id' => $b->shipper_id,
-                'dep_port_id' => $b->dep_port_id,
-                'dst_port_id' => $b->dst_port_id,
-                'etd' => $b->etd,
-                'eta' => $b->eta,
-                'flight_no' => $b->flight_no,
-                'office_id' => $b->office_id,
-                'pkg_qty' => $b->pkg_qty,
-                'pkg_unit_id' => $b->pkg_unit_id,
-                'gross_weight' => $b->gross_weight,
-                'volume' => $b->volume,
-                'chargeable_weight' => $b->chargeable_weight,
-                'cargo_type' => $b->cargo_type,
-                'ship_type' => $b->ship_type,
-            ];
-            \App\Models\AirExport::create($data);
-            $count++;
+            try {
+                // Generate unique file_no based on booking_no with timestamp to avoid duplicates
+                $fileNo = $b->booking_no;
+                
+                // Check if file_no already exists, if so add a suffix
+                $suffix = 1;
+                while (\App\Models\AirExport::where('file_no', $fileNo)->exists()) {
+                    $fileNo = $b->booking_no . '-' . $suffix;
+                    $suffix++;
+                }
+                
+                $data = [
+                    'file_no' => $fileNo,
+                    'mawb_no' => $b->booking_no, // Use booking_no as MAWB
+                    'booking_no' => $b->booking_no,
+                    'post_date' => now(),
+                    'office_id' => $b->office_id,
+                    'op_id' => $b->op_id,
+                    'oversea_agent_id' => $b->oversea_agent_id,
+                    'carrier_id' => $b->carrier_id,
+                    'flight_no' => $b->flight_no,
+                    'dep_port_id' => $b->dep_port_id,
+                    'dst_port_id' => $b->dst_port_id,
+                    'etd' => $b->etd,
+                    'eta' => $b->eta,
+                    'pkg_qty' => $b->pkg_qty ?? 0,
+                    'pkg_unit_id' => $b->pkg_unit_id,
+                    'gross_weight' => $b->gross_weight ?? 0,
+                    'chargeable_weight' => $b->chargeable_weight ?? 0,
+                    'volume' => $b->volume ?? 0,
+                    'shipper_id' => $b->shipper_id,
+                    'freight_term' => $b->wt_val_payment ?? null,
+                    'is_ecommerce' => false,
+                    'cargo_type' => $b->cargo_type,
+                    'ship_type' => $b->ship_type,
+                ];
+                
+                \App\Models\AirExport::create($data);
+                $converted++;
+            } catch (\Exception $e) {
+                $failed++;
+                $errors[] = "Booking {$b->booking_no}: " . $e->getMessage();
+            }
         }
-        return response()->json(['success' => true, 'message' => $count . ' booking(s) converted to shipment.']);
+        
+        if ($converted > 0 && $failed === 0) {
+            return response()->json([
+                'success' => true, 
+                'message' => $converted . ' booking(s) converted to shipment successfully.'
+            ]);
+        } elseif ($converted > 0 && $failed > 0) {
+            return response()->json([
+                'success' => true, 
+                'message' => $converted . ' booking(s) converted, ' . $failed . ' failed. ' . implode('; ', array_slice($errors, 0, 3))
+            ]);
+        } else {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Conversion failed: ' . implode('; ', array_slice($errors, 0, 3))
+            ], 422);
+        }
     }
 
     // ==================== ACCOUNTING TAB ====================

@@ -1,6 +1,108 @@
 <x-layout>
     @push('styles')
     <x-list-styles />
+    <style>
+        /* Button Group Styling - Better Alignment */
+        .btn-group {
+            display: inline-flex;
+            gap: 0;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .btn-group .btn-tool:not(:first-child) {
+            border-left: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-group .btn-tool {
+            border-radius: 0;
+            margin: 0;
+        }
+        
+        .btn-group .btn-tool:first-child {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .btn-group .btn-tool:last-child {
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .portlet-tool {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        /* Mobile Responsive Enhancements */
+        @media (max-width: 768px) {
+            .page-content { 
+                padding: 2px !important; 
+                overflow-x: hidden !important;
+            }
+            .portlet.light { 
+                margin: 0 !important; 
+                border-radius: 0 !important; 
+                overflow: hidden !important;
+            }
+            
+            .portlet-title { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                padding: 6px !important;
+                gap: 6px;
+            }
+            .portlet-title .caption { width: 100%; }
+            .portlet-title .actions { 
+                width: 100%; 
+                flex-wrap: wrap; 
+                gap: 3px !important;
+            }
+            
+            .portlet-tool { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                padding: 6px !important;
+                gap: 6px !important;
+            }
+            .portlet-tool > div { width: 100%; }
+            
+            .btn-group { 
+                width: 100%; 
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            
+            .grid-container { 
+                width: 100% !important;
+                overflow: hidden !important;
+            }
+            
+            .grid-wrapper { 
+                width: 100% !important;
+                height: calc(100vh - 350px) !important;
+                min-height: 200px !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            
+            .grid-table { 
+                font-size: 8px !important;
+                min-width: 1600px !important;
+            }
+            
+            .grid-table th, .grid-table td { 
+                padding: 2px 4px !important;
+                height: 22px !important;
+            }
+        }
+    </style>
     @endpush
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -118,44 +220,43 @@
 
             {{-- ── TOOLBAR ── --}}
             <div class="portlet-tool">
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <div class="btn-group">
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    <div class="btn-group" style="display:flex;gap:0;">
                         <a class="btn-tool green" href="{{ route('air-bookings.create') }}" title="New Booking" target="_blank">
                             <i class="fa fa-plus"></i>
                         </a>
-                        <button class="btn-tool" id="btn-copy"   disabled title="Copy Selected (select 1 row)" onclick="copySelected()">
-                            <i class="fa fa-files-o"></i>
-                        </button>
-                        <button class="btn-tool" id="btn-delete" disabled title="Delete Selected" onclick="confirmDelete()">
-                            <i class="fa fa-trash"></i>
+                        <button class="btn-tool" id="btn-copy"   disabled title="Copy (select 1 row)" onclick="copySelected()"><i class="fa fa-files-o"></i></button>
+                        <button class="btn-tool" id="btn-delete" disabled title="Delete selected" onclick="confirmDelete()"><i class="fa fa-trash"></i></button>
+                    </div>
+                    <div class="btn-group" style="display:flex;gap:0;">
+                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 10px;" onclick="blockSelected()">Block</button>
+                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 10px;" onclick="unblockSelected()">Unblock</button>
+                    </div>
+                    <div class="btn-group" style="display:flex;gap:0;">
+                        <button class="btn-tool" id="btn-convert" disabled style="padding:0 10px;" onclick="confirmConvert()">
+                            <i class="fa fa-plane"></i> Convert to Shipment
                         </button>
                     </div>
                     <div class="btn-group">
-                        <button class="btn-tool" id="btn-block"   disabled style="padding:0 12px;" onclick="blockSelected()">Block</button>
-                        <button class="btn-tool" id="btn-unblock" disabled style="padding:0 12px;" onclick="unblockSelected()">Unblock</button>
+                        <select class="select-tool" id="bulk-sales-select" disabled onchange="onBulkSalesChange(this)">
+                            <option value="">Change Sales</option>
+                            @foreach($users as $user)
+                                <option value="{{ $user->id }}">{{ $user->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="btn-group">
-                        <button class="btn-tool" id="btn-convert" disabled style="padding:0 12px;" onclick="confirmConvert()">
-                            <i class="fa fa-plane"></i> Convert to shipment
-                        </button>
+                        <select class="select-tool" id="bulk-op-select" disabled onchange="onBulkOpChange(this)">
+                            <option value="">Change OP</option>
+                            @foreach($users as $user)
+                                <option value="{{ $user->id }}">{{ $user->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
-                    <select class="select-tool" id="bulk-sales-select" disabled onchange="onBulkSalesChange(this)">
-                        <option value="">Change Sales</option>
-                        @foreach($users as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                        @endforeach
-                    </select>
-                    <select class="select-tool" id="bulk-op-select" disabled onchange="onBulkOpChange(this)">
-                        <option value="">Change OP</option>
-                        @foreach($users as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                        @endforeach
-                    </select>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <i class="fa fa-search" style="font-size:10px;color:#94a3b8;"></i>
-                    <input type="text" id="quick-search" class="input-inline" style="width:160px;"
-                           placeholder="Quick search..." oninput="quickSearch(this.value)" value="{{ request('search') }}">
+                    <input type="text" id="quick-search" class="input-inline" style="width:150px;" placeholder="Quick search…" oninput="quickSearch(this.value)" value="{{ request('search') }}">
                 </div>
             </div>
 
@@ -171,9 +272,12 @@
                                         <th class="sticky-col sticky-col-header" data-col="check"       style="width:25px;text-align:center;">
                                             <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" title="Select All">
                                         </th>
-                                        <th class="sticky-col sticky-col-header" data-col="booking_no"  style="width:130px;left:25px;">Booking No.</th>
-                                        <th class="sticky-col sticky-col-header" data-col="color"       style="width:28px;left:155px;text-align:center;">CR</th>
-                                        <th class="sticky-col sticky-col-header" data-col="customer"    style="width:140px;left:183px;">Customer</th>
+                                        <th class="sticky-col sticky-col-header" data-col="lock"        style="width:28px;left:25px;text-align:center;" title="Lock/Unlock Status">
+                                            <i class="fa fa-lock"></i>
+                                        </th>
+                                        <th class="sticky-col sticky-col-header" data-col="booking_no"  style="width:130px;left:53px;">Booking No.</th>
+                                        <th class="sticky-col sticky-col-header" data-col="color"       style="width:28px;left:183px;text-align:center;">CR</th>
+                                        <th class="sticky-col sticky-col-header" data-col="customer"    style="width:140px;left:211px;">Customer</th>
                                         <th data-col="office"        style="width:70px;">Office</th>
                                         <th data-col="carrier"       style="width:120px;">Carrier</th>
                                         <th data-col="flight_no"    style="width:100px;">Flight No.</th>
@@ -196,21 +300,22 @@
                                     {{-- ── FILTER ROW ── --}}
                                     <tr id="filter-row" style="display:none;">
                                         <td class="sticky-col" style="left:0;"></td>
-                                        <td class="sticky-col" style="left:25px;"><input class="filter-input" data-col-idx="1" placeholder="Booking…" oninput="applyFilters()"></td>
-                                        <td class="sticky-col" style="left:155px;"></td>
-                                        <td class="sticky-col" style="left:183px;"><input class="filter-input" data-col-idx="3" placeholder="Customer…" oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="4"  placeholder="Office…"    oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="5"  placeholder="Carrier…"   oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="6"  placeholder="Flight…"    oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="7"  placeholder="Dep Port…"  oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="8"  placeholder="Dest Port…" oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="9"  placeholder="ETD…"       oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="10" placeholder="ETA…"       oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="11" placeholder="Shipper…" oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="12" placeholder="O/A…"     oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="13" placeholder="OP…"      oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="14" placeholder="Sales…"   oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="15" placeholder="Status…"  oninput="applyFilters()"></td>
+                                        <td class="sticky-col" style="left:25px;"></td>
+                                        <td class="sticky-col" style="left:53px;"><input class="filter-input" data-col-idx="2" placeholder="Booking…" oninput="applyFilters()"></td>
+                                        <td class="sticky-col" style="left:183px;"></td>
+                                        <td class="sticky-col" style="left:211px;"><input class="filter-input" data-col-idx="4" placeholder="Customer…" oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="5"  placeholder="Office…"    oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="6"  placeholder="Carrier…"   oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="7"  placeholder="Flight…"    oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="8"  placeholder="Dep Port…"  oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="9" placeholder="Dest Port…" oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="10"  placeholder="ETD…"       oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="11" placeholder="ETA…"       oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="12" placeholder="Shipper…" oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="13" placeholder="O/A…"     oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="14" placeholder="OP…"      oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="15" placeholder="Sales…"   oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="16" placeholder="Status…"  oninput="applyFilters()"></td>
                                         <td colspan="5"></td>
                                     </tr>
                                 </thead>
@@ -234,16 +339,30 @@
                                         <td class="sticky-col" style="width:25px;text-align:center;" onclick="event.stopPropagation()">
                                             <input type="checkbox" name="ids[]" value="{{ $b->id }}" class="row-check" onchange="updateToolbar()">
                                         </td>
+                                        {{-- Lock Status --}}
+                                        <td class="sticky-col" style="left:25px;text-align:center;" onclick="event.stopPropagation()">
+                                            @if($b->is_blocked)
+                                                <i class="fa fa-ban" 
+                                                   style="cursor:pointer;color:#e74c3c;font-size:10px;" 
+                                                   title="Blocked - Cannot be edited"
+                                                   onclick="showToast('warning', 'This booking is blocked. Unblock it first to make changes.')"></i>
+                                            @else
+                                                <i class="fa {{ $b->is_locked ? 'fa-lock' : 'fa-unlock' }}" 
+                                                   style="cursor:pointer;color:{{ $b->is_locked ? '#94a3b8' : '#22c55e' }};font-size:10px;" 
+                                                   title="{{ $b->is_locked ? 'Locked - Click to unlock' : 'Unlocked - Click to lock' }}"
+                                                   onclick="toggleLock({{ $b->id }}, {{ $b->is_locked ? 'true' : 'false' }}, this)"></i>
+                                            @endif
+                                        </td>
                                         {{-- Booking No. --}}
-                                        <td class="sticky-col" style="left:25px;" onclick="event.stopPropagation()">
+                                        <td class="sticky-col" style="left:53px;" onclick="event.stopPropagation()">
                                             <a href="{{ route('air-bookings.edit', $b->id) }}" class="col-link">{{ $b->booking_no }}</a>
                                         </td>
                                         {{-- Color --}}
-                                        <td class="sticky-col" style="left:155px;text-align:center;">
+                                        <td class="sticky-col" style="left:183px;text-align:center;">
                                             <span class="color-mark" style="background:{{ $b->color ?? '#94a3b8' }}" title="Click to change status color" onclick="event.stopPropagation();openColorPicker({{ $b->id }}, '{{ $b->color ?? '' }}')"></span>
                                         </td>
                                         {{-- Customer --}}
-                                        <td class="sticky-col" style="left:183px;">{{ $b->customer->name ?? '--' }}</td>
+                                        <td class="sticky-col" style="left:211px;">{{ $b->customer->name ?? '--' }}</td>
                                         {{-- Office --}}
                                         <td>{{ $b->office->code ?? '--' }}</td>
                                         {{-- Carrier --}}
@@ -425,8 +544,25 @@
             return r.json();
         })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || 'Block failed.');
+            if (d.success) {
+                // Update lock icons for blocked bookings
+                ids.forEach(function(id) {
+                    var row = document.getElementById('booking-row-' + id);
+                    if (row) {
+                        var lockCell = row.querySelector('td:nth-child(2)');
+                        if (lockCell) {
+                            lockCell.innerHTML = '<i class="fa fa-ban" style="cursor:pointer;color:#e74c3c;font-size:10px;" title="Blocked - Cannot be edited" onclick="showToast(\'warning\', \'This booking is blocked. Unblock it first to make changes.\')"></i>';
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message);
+            } else {
+                showToast('error', d.message || 'Block failed.');
+            }
         })
         .catch(function() { showToast('error', 'Failed to block booking(s).'); });
     }
@@ -444,8 +580,25 @@
             return r.json();
         })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || 'Unblock failed.');
+            if (d.success) {
+                // Update lock icons for unblocked bookings (restore to unlocked state)
+                ids.forEach(function(id) {
+                    var row = document.getElementById('booking-row-' + id);
+                    if (row) {
+                        var lockCell = row.querySelector('td:nth-child(2)');
+                        if (lockCell) {
+                            lockCell.innerHTML = '<i class="fa fa-unlock" style="cursor:pointer;color:#22c55e;font-size:10px;" title="Unlocked - Click to lock" onclick="toggleLock(' + id + ', false, this)"></i>';
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message);
+            } else {
+                showToast('error', d.message || 'Unblock failed.');
+            }
         })
         .catch(function() { showToast('error', 'Failed to unblock booking(s).'); });
     }
@@ -456,8 +609,16 @@
     function confirmConvert() {
         var n = document.querySelectorAll('.row-check:checked').length;
         if (!n) return;
+        
+        if (n > 1) {
+            document.getElementById('convert-msg').textContent =
+                'You can only convert one booking at a time. Please select only one booking.';
+            document.getElementById('convert-overlay').classList.add('open');
+            return;
+        }
+        
         document.getElementById('convert-msg').textContent =
-            'Convert ' + n + ' booking(s) to air export shipment(s)?';
+            'Convert this booking to air export shipment? You will be redirected to the shipment form with the booking data pre-filled.';
         document.getElementById('convert-overlay').classList.add('open');
     }
     function closeConvert() {
@@ -466,26 +627,19 @@
     function executeConvert() {
         closeConvert();
         var checked = [...document.querySelectorAll('.row-check:checked')];
-        var ids = checked.map(function(cb) { return cb.value; });
-        if (!ids.length) return;
-        fetch('/air-export/booking/bulk-convert', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ ids: ids })
-        })
-        .then(function(r) {
-            if (!r.ok) throw new Error('Server returned ' + r.status);
-            return r.json();
-        })
-        .then(function(d) {
-            if (d.success) {
-                showToast('success', d.message);
-                updateGrid(window.location.href);
-            } else {
-                showToast('error', d.message || 'Conversion failed.');
-            }
-        })
-        .catch(function() { showToast('error', 'Failed to convert booking(s).'); });
+        if (!checked.length) return;
+        
+        if (checked.length > 1) {
+            showToast('error', 'Please select only one booking to convert.');
+            return;
+        }
+        
+        var bookingId = checked[0].value;
+        
+        // Navigate to Air Export create form with booking parameter
+        window.open('/air-export/create?booking=' + bookingId, '_blank');
+        
+        showToast('success', 'Opening shipment form with booking data...');
     }
 
     /* ================================================================
@@ -522,6 +676,11 @@
         var checked = [...document.querySelectorAll('.row-check:checked')];
         var ids = checked.map(function(cb) { return cb.value; });
         if (!ids.length) { closeChangeUser(); return; }
+        
+        // Get the selected user name for display
+        var userSelect = document.getElementById('change-user-select');
+        var userName = userSelect.options[userSelect.selectedIndex].text;
+        
         var url = _changeMode === 'sales'
             ? '/air-export/booking/bulk-change-sales'
             : '/air-export/booking/bulk-change-op';
@@ -538,8 +697,26 @@
             return r.json();
         })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || 'Update failed.');
+            if (d.success) {
+                // Update the table cells without full refresh
+                var columnIndex = _changeMode === 'sales' ? 15 : 14; // Sales is column 15, OP is column 14
+                ids.forEach(function(id) {
+                    var row = document.getElementById('booking-row-' + id);
+                    if (row) {
+                        var cells = row.querySelectorAll('td');
+                        if (cells[columnIndex]) {
+                            cells[columnIndex].textContent = userName;
+                        }
+                        // Uncheck the checkbox
+                        var checkbox = row.querySelector('.row-check');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                });
+                updateToolbar();
+                showToast('success', d.message);
+            } else {
+                showToast('error', d.message || 'Update failed.');
+            }
         })
         .catch(function() { showToast('error', 'Failed to update.'); });
         closeChangeUser();
@@ -604,11 +781,11 @@
 
     var filterTimer;
     var FILTER_MAP = {
-        1: 'filter_booking_no', 3: 'filter_customer', 4: 'filter_office',
-        5: 'filter_carrier', 6: 'filter_flight_no', 7: 'filter_dep_port',
-        8: 'filter_dst_port', 9: 'filter_etd', 10: 'filter_eta',
-        11: 'filter_shipper', 12: 'filter_oversea_agent',
-        13: 'filter_op', 14: 'filter_sales', 15: 'filter_status'
+        2: 'filter_booking_no', 4: 'filter_customer', 5: 'filter_office',
+        6: 'filter_carrier', 7: 'filter_flight_no', 8: 'filter_dep_port',
+        9: 'filter_dst_port', 10: 'filter_etd', 11: 'filter_eta',
+        12: 'filter_shipper', 13: 'filter_oversea_agent',
+        14: 'filter_op', 15: 'filter_sales', 16: 'filter_status'
     };
     function applyFilters() {
         clearTimeout(filterTimer);
@@ -631,7 +808,7 @@
     /* ================================================================
        CONFIG PANEL — column visibility
     ================================================================ */
-    var PINNED_COLS = ['check', 'booking_no', 'color', 'customer'];
+    var PINNED_COLS = ['check', 'lock', 'booking_no', 'color', 'customer'];
 
     function toggleConfig() {
         var panel = document.getElementById('config-panel');
@@ -675,6 +852,42 @@
             btn.classList.remove('active');
         }
     });
+
+    /* ================================================================
+       LOCK / UNLOCK TOGGLE
+    ================================================================ */
+    function toggleLock(id, isLocked, iconEl) {
+        const newLockState = !isLocked;
+        fetch('/air-export/booking/' + id + '/toggle-lock', {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRF-TOKEN': CSRF,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ is_locked: newLockState })
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Server returned ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            if (data.success) {
+                // Update icon
+                iconEl.className = 'fa ' + (newLockState ? 'fa-lock' : 'fa-unlock');
+                iconEl.style.color = newLockState ? '#94a3b8' : '#22c55e';
+                iconEl.style.fontSize = '10px';
+                iconEl.title = newLockState ? 'Locked - Click to unlock' : 'Unlocked - Click to lock';
+                iconEl.setAttribute('onclick', 'toggleLock(' + id + ', ' + newLockState + ', this)');
+                showToast('success', 'Booking ' + (newLockState ? 'locked' : 'unlocked') + ' successfully');
+            } else {
+                showToast('error', data.message || 'Failed to toggle lock status');
+            }
+        })
+        .catch(function() {
+            showToast('error', 'Failed to toggle lock status');
+        });
+    }
 
     /* ================================================================
        COLOR PICKER
@@ -752,7 +965,18 @@
             }
         });
         params.push('export=csv');
-        window.location.href = '{{ route('air-bookings.index') }}?' + params.join('&');
+        
+        // Create a temporary anchor element to trigger download without page refresh
+        var url = '{{ route('air-bookings.index') }}?' + params.join('&');
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'air-bookings-' + new Date().toISOString().slice(0, 10) + '.csv';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        showToast('success', 'Export started. Your download will begin shortly.');
     }
 
     /* ================================================================

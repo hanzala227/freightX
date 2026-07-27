@@ -138,6 +138,37 @@ class AirExportController extends Controller
         $page = $request->segment(2);
         $quotations = \App\Models\Quotation::with(['customer', 'salesPerson', 'pol', 'pod', 'items.currency'])->latest()->get();
 
+        // Handle booking conversion - load data from booking
+        if ($request->has('booking')) {
+            $booking = \App\Models\AirBooking::findOrFail($request->booking);
+            
+            // Create a new AirExport object with booking data
+            $airExport = new AirExport();
+            $airExport->booking_no = $booking->booking_no;
+            $airExport->mawb_no = $booking->booking_no; // Use booking_no as MAWB initially
+            $airExport->office_id = $booking->office_id;
+            $airExport->op_id = $booking->op_id;
+            $airExport->carrier_id = $booking->carrier_id;
+            $airExport->oversea_agent_id = $booking->oversea_agent_id;
+            $airExport->flight_no = $booking->flight_no;
+            $airExport->dep_port_id = $booking->dep_port_id;
+            $airExport->dst_port_id = $booking->dst_port_id;
+            $airExport->etd = $booking->etd;
+            $airExport->eta = $booking->eta;
+            $airExport->pkg_qty = $booking->pkg_qty ?? 0;
+            $airExport->pkg_unit_id = $booking->pkg_unit_id;
+            $airExport->gross_weight = $booking->gross_weight ?? 0;
+            $airExport->chargeable_weight = $booking->chargeable_weight ?? 0;
+            $airExport->volume = $booking->volume ?? 0;
+            $airExport->shipper_id = $booking->shipper_id;
+            $airExport->freight_term = $booking->wt_val_payment;
+            $airExport->post_date = now();
+            
+            $chargesData = collect();
+            return view('air-export.create', compact('airExport', 'offices', 'ports', 'agents', 'users', 'packageUnits', 'currencies', 'page', 'quotations', 'chargesData', 'booking'));
+        }
+
+        // Handle copy - load data from existing shipment
         if ($request->has('copy')) {
             $airExport = AirExport::with(['hbls', 'charges.currency'])->findOrFail($request->copy);
             // Null the ID so the create view treats this as a new record (POST), not an edit (PUT)

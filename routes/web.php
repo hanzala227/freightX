@@ -361,6 +361,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/air-export/booking/bulk-change-sales', [AirBookingController::class, 'bulkChangeSales'])->name('air-bookings.bulk-change-sales');
     Route::post('/air-export/booking/bulk-change-op', [AirBookingController::class, 'bulkChangeOp'])->name('air-bookings.bulk-change-op');
     Route::patch('/air-export/booking/{id}/color', [AirBookingController::class, 'updateColor'])->name('air-bookings.update-color');
+    Route::patch('/air-export/booking/{id}/toggle-lock', [AirBookingController::class, 'toggleLock'])->name('air-bookings.toggle-lock');
     Route::post('/air-export/booking/bulk-convert', [AirBookingController::class, 'bulkConvert'])->name('air-bookings.bulk-convert');
     Route::post('/air-export/booking/bulk-block', [AirBookingController::class, 'bulkBlock'])->name('air-bookings.bulk-block');
     Route::post('/air-export/booking/bulk-unblock', [AirBookingController::class, 'bulkUnblock'])->name('air-bookings.bulk-unblock');

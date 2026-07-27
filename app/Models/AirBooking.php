@@ -43,10 +43,12 @@ class AirBooking extends Model
         'op_id',
         'color',
         'is_blocked',
+        'is_locked',
     ];
 
     protected $attributes = [
         'is_blocked' => false,
+        'is_locked' => false,
     ];
 
     protected $casts = [
@@ -54,6 +56,8 @@ class AirBooking extends Model
         'etd'          => 'date',
         'eta'          => 'date',
         'stackable'    => 'boolean',
+        'is_blocked'   => 'boolean',
+        'is_locked'    => 'boolean',
     ];
 
     public function office()
