@@ -316,9 +316,9 @@
 
     <div x-data="window.airExportModule()" x-init="init()" x-cloak>
         <div class="page-content">
-        <form id="airExportForm" action="{{ isset($airExport) ? route('air-export.update', $airExport->id) : route('air-export.store') }}" method="POST">
+        <form id="airExportForm" action="{{ isset($airExport) && $airExport->id ? route('air-export.update', $airExport->id) : route('air-export.store') }}" method="POST">
             @csrf
-            @if(isset($airExport)) @method('PUT') @endif
+            @if(isset($airExport) && $airExport->id) @method('PUT') @endif
         <!-- Breadcrumbs -->
         <div style="font-size: 11px; color: #8e9eae; margin-bottom: 15px;">
             <a href="/" style="color: #8e9eae; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#337ab7';" onmouseout="this.style.color='#8e9eae';" target="_blank"><i class="fa fa-home"></i> Home</a> <i class="fa fa-angle-right" style="margin: 0 5px;"></i> 
@@ -1487,4 +1487,31 @@
             </div>
         </template>
     </div>
+
+<div id="toast-container" class="toast-container"></div>
+<script>
+    function showToast(type, msg) {
+        const icons = { success: 'check-circle', error: 'times-circle', info: 'info-circle', warning: 'exclamation-triangle' };
+        const t = document.createElement('div');
+        t.className = 'toast ' + type;
+        t.innerHTML = '<i class="fa fa-' + (icons[type] || 'info-circle') + '"></i> ' + msg;
+        document.getElementById('toast-container').appendChild(t);
+        setTimeout(() => t.remove(), 7000);
+    }
+
+    @if(session('success'))
+        showToast('success', '{{ session('success') }}');
+    @endif
+    @if(session('error'))
+        showToast('error', '{!! addslashes(session('error')) !!}');
+    @endif
+    @if(session('warning'))
+        showToast('warning', '{{ session('warning') }}');
+    @endif
+    @if($errors->any())
+        @foreach($errors->all() as $error)
+            showToast('error', '{!! addslashes($error) !!}');
+        @endforeach
+    @endif
+</script>
 </x-layout>

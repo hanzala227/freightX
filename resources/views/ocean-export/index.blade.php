@@ -12,32 +12,61 @@
                 <i class="fa fa-check-circle"></i> {{ session('success') }}
             </div>
         @endif
-        @if(session('error'))
-            <div class="alert alert-danger" style="background:#fce4e4;border:1px solid #e57373;color:#c62828;padding:10px 15px;border-radius:4px;margin-bottom:15px;display:flex;align-items:center;gap:8px;">
-                <i class="fa fa-exclamation-circle"></i> {{ session('error') }}
-            </div>
-        @endif
-        @if($errors->any())
-            <div class="alert alert-danger" style="background:#fce4e4;border:1px solid #e57373;color:#c62828;padding:10px 15px;border-radius:4px;margin-bottom:15px;">
-                <strong>Validation Error</strong>
-                <ul style="margin:5px 0 0 15px;padding:0;">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
 
     <script>
+        // Store old input data globally (use window to avoid redeclaration with Turbo/Livewire)
+        window.oldInputData = @json(request()->old());
+        
+        // Debug: Log if we have old data
+        console.log('=== OCEAN EXPORT FORM DEBUG ===');
+        console.log('Old input data:', window.oldInputData);
+        console.log('Has old data?', window.oldInputData && Object.keys(window.oldInputData).length > 0);
+        
+        // Force reload on browser back/forward navigation to fix cached Alpine state
+        if (!window.oceanExportPageShowHandlerAdded) {
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                    // Page was loaded from cache (bfcache), force reload
+                    window.location.reload();
+                }
+            });
+            window.oceanExportPageShowHandlerAdded = true;
+        }
+        
+        // Helper function to get value: old() > $oceanExport > default
+        window.getFormValue = function(field, defaultValue = '') {
+            if (window.oldInputData && window.oldInputData[field] !== undefined && window.oldInputData[field] !== null) {
+                return window.oldInputData[field];
+            }
+            return defaultValue;
+        };
+
         function oceanExportModule() {
             return {
-                saved: @json(isset($oceanExport) ? true : false),
+                saved: @json(isset($oceanExport) && $oceanExport->id ? true : false),
                 activeTab: 'basic',
                 showMblSection: true,
                 showMblMemo: false,
                 isDirectMaster: {{ (isset($oceanExport) && $oceanExport->is_direct_master) ? 'true' : 'false' }},
                 showMore: false,
                 showClipboardModal: false,
+                
+                // Initialize saved state based on whether we have an ID
+                init() {
+                    console.log('🔧 Alpine init() called');
+                    console.log('form.id:', this.form.id);
+                    console.log('saved (before):', this.saved);
+                    
+                    // Check if form has ID (means we're editing)
+                    if (this.form.id) {
+                        this.saved = true;
+                        console.log('✅ Set saved = true (form.id exists)');
+                    } else {
+                        console.log('⚠️ form.id is null/undefined, keeping saved = false');
+                    }
+                    
+                    console.log('saved (after):', this.saved);
+                },
                 showQuoteModal: '{{ $page ?? "" }}' === 'create-quote',
                 showQuoteConfig: false,
                 colVisibility: {
@@ -134,88 +163,88 @@
                     ship_mode: 'FCL', oversea_agent: '', service_term: '', op: '',
                     incoterms: '', incoterms_id: '', carrier_name: '', detail: ''
                 },
-                hbls: @json(isset($oceanExport) && $oceanExport->hbls->count() ? $oceanExport->hbls : []),
+                hbls: getFormValue('hbls', @json(isset($oceanExport) && $oceanExport->hbls->count() ? $oceanExport->hbls : [])),
                 form: {
                     id: @json(isset($oceanExport) ? $oceanExport->id : null),
-                    file_no: @json(isset($oceanExport) ? $oceanExport->file_no : 'MOE-' . date('ymdHis')),
-                    mbl_no: @json(isset($oceanExport) ? $oceanExport->mbl_no : ''),
-                    booking_no: @json(isset($oceanExport) ? $oceanExport->booking_no : ''),
-                    office_id: @json(isset($oceanExport) ? $oceanExport->office_id : ''),
-                    post_date: @json(isset($oceanExport) && $oceanExport->post_date ? $oceanExport->post_date->format('Y-m-d') : date('Y-m-d')),
-                    voyage: @json(isset($oceanExport) ? $oceanExport->voyage : ''),
-                    etd: @json(isset($oceanExport) && $oceanExport->etd ? $oceanExport->etd->format('Y-m-d') : ''),
-                    eta: @json(isset($oceanExport) && $oceanExport->eta ? $oceanExport->eta->format('Y-m-d') : ''),
-                    forwarding_agent_id: @json(isset($oceanExport) ? $oceanExport->forwarding_agent_id : ''),
-                    op_id: @json(isset($oceanExport) ? $oceanExport->op_id : ''),
-                    agent_ref_no: @json(isset($oceanExport) ? $oceanExport->agent_ref_no : ''),
-                    dm_customer_id: @json(isset($oceanExport) ? $oceanExport->dm_customer_id : ''),
-                    dm_sales_person_id: @json(isset($oceanExport) ? $oceanExport->dm_sales_person_id : ''),
-                    oversea_agent_id: @json(isset($oceanExport) ? $oceanExport->oversea_agent_id : ''),
-                    co_loader_id: @json(isset($oceanExport) ? $oceanExport->co_loader_id : ''),
-                    contract_no: @json(isset($oceanExport) ? $oceanExport->contract_no : ''),
-                    dm_shipper_id: @json(isset($oceanExport) ? $oceanExport->dm_shipper_id : ''),
-                    dm_bill_to_id: @json(isset($oceanExport) ? $oceanExport->dm_bill_to_id : ''),
-                    carrier_id: @json(isset($oceanExport) ? $oceanExport->carrier_id : ''),
-                    bl_type: @json(isset($oceanExport) ? $oceanExport->bl_type : 'NORMAL'),
-                    acct_carrier_id: @json(isset($oceanExport) ? $oceanExport->acct_carrier_id : ''),
-                    sub_bl_no: @json(isset($oceanExport) ? $oceanExport->sub_bl_no : ''),
-                    dm_notify_id: @json(isset($oceanExport) ? $oceanExport->dm_notify_id : ''),
-                    cargo_type: @json(isset($oceanExport) ? $oceanExport->cargo_type : 'GENERAL CARGO'),
-                    vessel_id: @json(isset($oceanExport) ? $oceanExport->vessel_id : ''),
-                    pol_id: @json(isset($oceanExport) ? $oceanExport->pol_id : ''),
-                    del_id: @json(isset($oceanExport) ? $oceanExport->del_id : ''),
-                    atd: @json(isset($oceanExport) && $oceanExport->atd ? $oceanExport->atd->format('Y-m-d') : ''),
-                    cy_location_id: @json(isset($oceanExport) ? $oceanExport->cy_location_id : ''),
-                    pod_id: @json(isset($oceanExport) ? $oceanExport->pod_id : ''),
-                    fdest_id: @json(isset($oceanExport) ? $oceanExport->fdest_id : ''),
-                    ata: @json(isset($oceanExport) && $oceanExport->ata ? $oceanExport->ata->format('Y-m-d') : ''),
-                    cfs_location_id: @json(isset($oceanExport) ? $oceanExport->cfs_location_id : ''),
-                    final_eta: @json(isset($oceanExport) && $oceanExport->final_eta ? $oceanExport->final_eta->format('Y-m-d') : ''),
-                    etb: @json(isset($oceanExport) && $oceanExport->etb ? $oceanExport->etb->format('Y-m-d') : ''),
-                    freight_term: @json(isset($oceanExport) ? $oceanExport->freight_term : 'Prepaid'),
-                    obl_type: @json(isset($oceanExport) ? $oceanExport->obl_type : 'ORIGINAL BILL OF LADING'),
-                    latest_gate_in: @json(isset($oceanExport) && $oceanExport->latest_gate_in ? $oceanExport->latest_gate_in->format('Y-m-d') : ''),
-                    ship_mode: @json(isset($oceanExport) ? $oceanExport->ship_mode : 'FCL'),
-                    is_obl_received: @json(isset($oceanExport) ? (bool)$oceanExport->is_obl_received : false),
-                    obl_received_date: @json(isset($oceanExport) && $oceanExport->obl_received_date ? $oceanExport->obl_received_date->format('Y-m-d') : ''),
-                    service_term_from_id: @json(isset($oceanExport) && $oceanExport->service_term_from_id ? $oceanExport->service_term_from_id : ($serviceTerms?->first()?->id ?? '')),
-                    service_term_to_id: @json(isset($oceanExport) && $oceanExport->service_term_to_id ? $oceanExport->service_term_to_id : ($serviceTerms?->first()?->id ?? '')),
-                    is_released: @json(isset($oceanExport) ? (bool)$oceanExport->is_released : false),
-                    released_date: @json(isset($oceanExport) && $oceanExport->released_date ? $oceanExport->released_date->format('Y-m-d') : ''),
-                    business_referred_by_id: @json(isset($oceanExport) ? $oceanExport->business_referred_by_id : ''),
-                    receipt_id: @json(isset($oceanExport) ? $oceanExport->receipt_id : ''),
-                    receipt_etd: @json(isset($oceanExport) && $oceanExport->receipt_etd ? $oceanExport->receipt_etd->format('Y-m-d') : ''),
-                    return_location_id: @json(isset($oceanExport) ? $oceanExport->return_location_id : ''),
-                    dm_consignee_id: @json(isset($oceanExport) ? $oceanExport->dm_consignee_id : ''),
-                    sales_type: @json(isset($oceanExport) ? $oceanExport->sales_type : 'NORMAL'),
-                    internal_remark: @json(isset($oceanExport) ? $oceanExport->internal_remark : ''),
-                    is_blocked: @json(isset($oceanExport) ? (bool)$oceanExport->is_blocked : false),
-                    ams_no: @json(isset($oceanExport) ? $oceanExport->ams_no : ''),
-                    isf_no: @json(isset($oceanExport) ? $oceanExport->isf_no : ''),
-                    isf_matched_date: @json(isset($oceanExport) && $oceanExport->isf_matched_date ? $oceanExport->isf_matched_date->format('Y-m-d') : ''),
-                    is_isf_3rd_party: @json(isset($oceanExport) ? (bool)$oceanExport->is_isf_3rd_party : false),
-                    entry_no: @json(isset($oceanExport) ? $oceanExport->entry_no : ''),
-                    entry_doc_sent_date: @json(isset($oceanExport) && $oceanExport->entry_doc_sent_date ? $oceanExport->entry_doc_sent_date->format('Y-m-d') : ''),
-                    go_date: @json(isset($oceanExport) && $oceanExport->go_date ? $oceanExport->go_date->format('Y-m-d') : ''),
-                    available_date: @json(isset($oceanExport) && $oceanExport->available_date ? $oceanExport->available_date->format('Y-m-d') : ''),
-                    c_released_date: @json(isset($oceanExport) && $oceanExport->c_released_date ? $oceanExport->c_released_date->format('Y-m-d') : ''),
-                    released_by_id: @json(isset($oceanExport) ? $oceanExport->released_by_id : ''),
-                    is_ror: @json(isset($oceanExport) ? (bool)$oceanExport->is_ror : false),
-                    is_hold: @json(isset($oceanExport) ? (bool)$oceanExport->is_hold : false),
-                    door_delivery_date: @json(isset($oceanExport) && $oceanExport->door_delivery_date ? $oceanExport->door_delivery_date->format('Y-m-d') : ''),
-                    trucker_id: @json(isset($oceanExport) ? $oceanExport->trucker_id : ''),
-                    expiry_date: @json(isset($oceanExport) && $oceanExport->expiry_date ? $oceanExport->expiry_date->format('Y-m-d') : ''),
-                    incoterm_id: @json(isset($oceanExport) ? $oceanExport->incoterm_id : ''),
-                    lfd: @json(isset($oceanExport) && $oceanExport->lfd ? $oceanExport->lfd->format('Y-m-d') : ''),
-                    is_do_sent: @json(isset($oceanExport) ? (bool)$oceanExport->is_do_sent : false),
-                    do_sent_date: @json(isset($oceanExport) && $oceanExport->do_sent_date ? $oceanExport->do_sent_date->format('Y-m-d') : ''),
+                    file_no: getFormValue('file_no', @json(isset($oceanExport) ? $oceanExport->file_no : 'MOE-' . date('ymdHis'))),
+                    mbl_no: getFormValue('mbl_no', @json(isset($oceanExport) ? $oceanExport->mbl_no : '')),
+                    booking_no: getFormValue('booking_no', @json(isset($oceanExport) ? $oceanExport->booking_no : '')),
+                    office_id: getFormValue('office_id', @json(isset($oceanExport) ? $oceanExport->office_id : '')),
+                    post_date: getFormValue('post_date', @json(isset($oceanExport) && $oceanExport->post_date ? $oceanExport->post_date->format('Y-m-d') : date('Y-m-d'))),
+                    voyage: getFormValue('voyage', @json(isset($oceanExport) ? $oceanExport->voyage : '')),
+                    etd: getFormValue('etd', @json(isset($oceanExport) && $oceanExport->etd ? $oceanExport->etd->format('Y-m-d') : '')),
+                    eta: getFormValue('eta', @json(isset($oceanExport) && $oceanExport->eta ? $oceanExport->eta->format('Y-m-d') : '')),
+                    forwarding_agent_id: getFormValue('forwarding_agent_id', @json(isset($oceanExport) ? $oceanExport->forwarding_agent_id : '')),
+                    op_id: getFormValue('op_id', @json(isset($oceanExport) ? $oceanExport->op_id : '')),
+                    agent_ref_no: getFormValue('agent_ref_no', @json(isset($oceanExport) ? $oceanExport->agent_ref_no : '')),
+                    dm_customer_id: getFormValue('dm_customer_id', @json(isset($oceanExport) ? $oceanExport->dm_customer_id : '')),
+                    dm_sales_person_id: getFormValue('dm_sales_person_id', @json(isset($oceanExport) ? $oceanExport->dm_sales_person_id : '')),
+                    oversea_agent_id: getFormValue('oversea_agent_id', @json(isset($oceanExport) ? $oceanExport->oversea_agent_id : '')),
+                    co_loader_id: getFormValue('co_loader_id', @json(isset($oceanExport) ? $oceanExport->co_loader_id : '')),
+                    contract_no: getFormValue('contract_no', @json(isset($oceanExport) ? $oceanExport->contract_no : '')),
+                    dm_shipper_id: getFormValue('dm_shipper_id', @json(isset($oceanExport) ? $oceanExport->dm_shipper_id : '')),
+                    dm_bill_to_id: getFormValue('dm_bill_to_id', @json(isset($oceanExport) ? $oceanExport->dm_bill_to_id : '')),
+                    carrier_id: getFormValue('carrier_id', @json(isset($oceanExport) ? $oceanExport->carrier_id : '')),
+                    bl_type: getFormValue('bl_type', @json(isset($oceanExport) ? $oceanExport->bl_type : 'NORMAL')),
+                    acct_carrier_id: getFormValue('acct_carrier_id', @json(isset($oceanExport) ? $oceanExport->acct_carrier_id : '')),
+                    sub_bl_no: getFormValue('sub_bl_no', @json(isset($oceanExport) ? $oceanExport->sub_bl_no : '')),
+                    dm_notify_id: getFormValue('dm_notify_id', @json(isset($oceanExport) ? $oceanExport->dm_notify_id : '')),
+                    cargo_type: getFormValue('cargo_type', @json(isset($oceanExport) ? $oceanExport->cargo_type : 'GENERAL CARGO')),
+                    vessel_id: getFormValue('vessel_id', @json(isset($oceanExport) ? $oceanExport->vessel_id : '')),
+                    pol_id: getFormValue('pol_id', @json(isset($oceanExport) ? $oceanExport->pol_id : '')),
+                    del_id: getFormValue('del_id', @json(isset($oceanExport) ? $oceanExport->del_id : '')),
+                    atd: getFormValue('atd', @json(isset($oceanExport) && $oceanExport->atd ? $oceanExport->atd->format('Y-m-d') : '')),
+                    cy_location_id: getFormValue('cy_location_id', @json(isset($oceanExport) ? $oceanExport->cy_location_id : '')),
+                    pod_id: getFormValue('pod_id', @json(isset($oceanExport) ? $oceanExport->pod_id : '')),
+                    fdest_id: getFormValue('fdest_id', @json(isset($oceanExport) ? $oceanExport->fdest_id : '')),
+                    ata: getFormValue('ata', @json(isset($oceanExport) && $oceanExport->ata ? $oceanExport->ata->format('Y-m-d') : '')),
+                    cfs_location_id: getFormValue('cfs_location_id', @json(isset($oceanExport) ? $oceanExport->cfs_location_id : '')),
+                    final_eta: getFormValue('final_eta', @json(isset($oceanExport) && $oceanExport->final_eta ? $oceanExport->final_eta->format('Y-m-d') : '')),
+                    etb: getFormValue('etb', @json(isset($oceanExport) && $oceanExport->etb ? $oceanExport->etb->format('Y-m-d') : '')),
+                    freight_term: getFormValue('freight_term', @json(isset($oceanExport) ? $oceanExport->freight_term : 'Prepaid')),
+                    obl_type: getFormValue('obl_type', @json(isset($oceanExport) ? $oceanExport->obl_type : 'ORIGINAL BILL OF LADING')),
+                    latest_gate_in: getFormValue('latest_gate_in', @json(isset($oceanExport) && $oceanExport->latest_gate_in ? $oceanExport->latest_gate_in->format('Y-m-d') : '')),
+                    ship_mode: getFormValue('ship_mode', @json(isset($oceanExport) ? $oceanExport->ship_mode : 'FCL')),
+                    is_obl_received: getFormValue('is_obl_received', @json(isset($oceanExport) ? (bool)$oceanExport->is_obl_received : false)),
+                    obl_received_date: getFormValue('obl_received_date', @json(isset($oceanExport) && $oceanExport->obl_received_date ? $oceanExport->obl_received_date->format('Y-m-d') : '')),
+                    service_term_from_id: getFormValue('service_term_from_id', @json(isset($oceanExport) && $oceanExport->service_term_from_id ? $oceanExport->service_term_from_id : ($serviceTerms?->first()?->id ?? ''))),
+                    service_term_to_id: getFormValue('service_term_to_id', @json(isset($oceanExport) && $oceanExport->service_term_to_id ? $oceanExport->service_term_to_id : ($serviceTerms?->first()?->id ?? ''))),
+                    is_released: getFormValue('is_released', @json(isset($oceanExport) ? (bool)$oceanExport->is_released : false)),
+                    released_date: getFormValue('released_date', @json(isset($oceanExport) && $oceanExport->released_date ? $oceanExport->released_date->format('Y-m-d') : '')),
+                    business_referred_by_id: getFormValue('business_referred_by_id', @json(isset($oceanExport) ? $oceanExport->business_referred_by_id : '')),
+                    receipt_id: getFormValue('receipt_id', @json(isset($oceanExport) ? $oceanExport->receipt_id : '')),
+                    receipt_etd: getFormValue('receipt_etd', @json(isset($oceanExport) && $oceanExport->receipt_etd ? $oceanExport->receipt_etd->format('Y-m-d') : '')),
+                    return_location_id: getFormValue('return_location_id', @json(isset($oceanExport) ? $oceanExport->return_location_id : '')),
+                    dm_consignee_id: getFormValue('dm_consignee_id', @json(isset($oceanExport) ? $oceanExport->dm_consignee_id : '')),
+                    sales_type: getFormValue('sales_type', @json(isset($oceanExport) ? $oceanExport->sales_type : 'NORMAL')),
+                    internal_remark: getFormValue('internal_remark', @json(isset($oceanExport) ? $oceanExport->internal_remark : '')),
+                    is_blocked: getFormValue('is_blocked', @json(isset($oceanExport) ? (bool)$oceanExport->is_blocked : false)),
+                    ams_no: getFormValue('ams_no', @json(isset($oceanExport) ? $oceanExport->ams_no : '')),
+                    isf_no: getFormValue('isf_no', @json(isset($oceanExport) ? $oceanExport->isf_no : '')),
+                    isf_matched_date: getFormValue('isf_matched_date', @json(isset($oceanExport) && $oceanExport->isf_matched_date ? $oceanExport->isf_matched_date->format('Y-m-d') : '')),
+                    is_isf_3rd_party: getFormValue('is_isf_3rd_party', @json(isset($oceanExport) ? (bool)$oceanExport->is_isf_3rd_party : false)),
+                    entry_no: getFormValue('entry_no', @json(isset($oceanExport) ? $oceanExport->entry_no : '')),
+                    entry_doc_sent_date: getFormValue('entry_doc_sent_date', @json(isset($oceanExport) && $oceanExport->entry_doc_sent_date ? $oceanExport->entry_doc_sent_date->format('Y-m-d') : '')),
+                    go_date: getFormValue('go_date', @json(isset($oceanExport) && $oceanExport->go_date ? $oceanExport->go_date->format('Y-m-d') : '')),
+                    available_date: getFormValue('available_date', @json(isset($oceanExport) && $oceanExport->available_date ? $oceanExport->available_date->format('Y-m-d') : '')),
+                    c_released_date: getFormValue('c_released_date', @json(isset($oceanExport) && $oceanExport->c_released_date ? $oceanExport->c_released_date->format('Y-m-d') : '')),
+                    released_by_id: getFormValue('released_by_id', @json(isset($oceanExport) ? $oceanExport->released_by_id : '')),
+                    is_ror: getFormValue('is_ror', @json(isset($oceanExport) ? (bool)$oceanExport->is_ror : false)),
+                    is_hold: getFormValue('is_hold', @json(isset($oceanExport) ? (bool)$oceanExport->is_hold : false)),
+                    door_delivery_date: getFormValue('door_delivery_date', @json(isset($oceanExport) && $oceanExport->door_delivery_date ? $oceanExport->door_delivery_date->format('Y-m-d') : '')),
+                    trucker_id: getFormValue('trucker_id', @json(isset($oceanExport) ? $oceanExport->trucker_id : '')),
+                    expiry_date: getFormValue('expiry_date', @json(isset($oceanExport) && $oceanExport->expiry_date ? $oceanExport->expiry_date->format('Y-m-d') : '')),
+                    incoterm_id: getFormValue('incoterm_id', @json(isset($oceanExport) ? $oceanExport->incoterm_id : '')),
+                    lfd: getFormValue('lfd', @json(isset($oceanExport) && $oceanExport->lfd ? $oceanExport->lfd->format('Y-m-d') : '')),
+                    is_do_sent: getFormValue('is_do_sent', @json(isset($oceanExport) ? (bool)$oceanExport->is_do_sent : false)),
+                    do_sent_date: getFormValue('do_sent_date', @json(isset($oceanExport) && $oceanExport->do_sent_date ? $oceanExport->do_sent_date->format('Y-m-d') : '')),
                     // Filing tab partner fields (not in fillable but used in the UI)
-                    shipper_id: @json(isset($oceanExport) ? $oceanExport->shipper_id : ''),
-                    bill_to_id: @json(isset($oceanExport) ? $oceanExport->bill_to_id : ''),
-                    consignee_id: @json(isset($oceanExport) ? $oceanExport->consignee_id : ''),
-                    notify_id: @json(isset($oceanExport) ? $oceanExport->notify_id : ''),
-                    is_ecommerce: @json(isset($oceanExport) ? (bool)$oceanExport->is_ecommerce : false),
-                    containers: @json(isset($oceanExport) && $oceanExport->containers->count() ? $oceanExport->containers : []),
+                    shipper_id: getFormValue('shipper_id', @json(isset($oceanExport) ? $oceanExport->shipper_id : '')),
+                    bill_to_id: getFormValue('bill_to_id', @json(isset($oceanExport) ? $oceanExport->bill_to_id : '')),
+                    consignee_id: getFormValue('consignee_id', @json(isset($oceanExport) ? $oceanExport->consignee_id : '')),
+                    notify_id: getFormValue('notify_id', @json(isset($oceanExport) ? $oceanExport->notify_id : '')),
+                    is_ecommerce: getFormValue('is_ecommerce', @json(isset($oceanExport) ? (bool)$oceanExport->is_ecommerce : false)),
+                    containers: getFormValue('containers', @json(isset($oceanExport) && $oceanExport->containers->count() ? $oceanExport->containers : [])),
                     charges: [],
                 history: @json($history ?? [])
             },
@@ -2035,4 +2064,34 @@ C.Hold <input type="checkbox" :name="'hbls['+index+'][is_customs_hold]'" value="
 
     </div>
     </form>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script>
+        function showToast(type, msg) {
+            const icons = { success: 'check-circle', error: 'times-circle', info: 'info-circle', warning: 'exclamation-triangle' };
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.innerHTML = '<i class="fa fa-' + (icons[type] || 'info-circle') + '"></i> ' + msg;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(() => t.remove(), 7000);
+        }
+
+        // Show session messages as toasts
+        @if(session('success'))
+            showToast('success', '{{ session('success') }}');
+        @endif
+        @if(session('error'))
+            showToast('error', '{!! addslashes(session('error')) !!}');
+        @endif
+        @if(session('warning'))
+            showToast('warning', '{{ session('warning') }}');
+        @endif
+        @if($errors->any())
+            @foreach($errors->all() as $error)
+                showToast('error', '{!! addslashes($error) !!}');
+            @endforeach
+        @endif
+    </script>
 </x-layout>

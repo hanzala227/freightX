@@ -3,12 +3,23 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class StoreAirExportRequest extends FormRequest
 {
     public function authorize()
     {
         return true;
+    }
+
+    protected function failedValidation(Validator $validator)
+    {
+        $this->flash();
+        
+        throw (new ValidationException($validator))
+            ->errorBag($this->errorBag)
+            ->redirectTo($this->getRedirectUrl());
     }
 
     protected function prepareForValidation()
@@ -71,7 +82,7 @@ class StoreAirExportRequest extends FormRequest
             'actual_shipper_id' => 'nullable|exists:trade_partners,id',
 
             'hbls' => 'nullable|array',
-            'hbls.*.hawb_no' => 'nullable|string',
+            'hbls.*.hawb_no' => 'nullable|string|unique:air_export_hbls,hawb_no',
             'hbls.*.customer_id' => 'nullable|exists:trade_partners,id',
             'hbls.*.shipper_id' => 'nullable|exists:trade_partners,id',
             'hbls.*.consignee_id' => 'nullable|exists:trade_partners,id',
@@ -113,6 +124,20 @@ class StoreAirExportRequest extends FormRequest
             'charges.*.amount' => 'nullable|numeric',
             'charges.*.currency' => 'nullable|string',
             'charges.*.type' => 'nullable|string|in:origin_revenue,destination_revenue,origin_cost',
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            'file_no.required' => 'File number is required.',
+            'file_no.unique' => 'This file number already exists. Please use a unique file number.',
+            'mawb_no.unique' => 'This MAWB number already exists. Please use a unique MAWB number.',
+            'hbls.*.hawb_no.unique' => 'One or more HAWB numbers already exist. Each HAWB must be unique.',
+            'office_id.exists' => 'Selected office is invalid.',
+            'carrier_id.exists' => 'Selected carrier is invalid.',
+            'dep_port_id.exists' => 'Selected departure port is invalid.',
+            'dst_port_id.exists' => 'Selected destination port is invalid.',
         ];
     }
 }

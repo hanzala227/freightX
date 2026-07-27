@@ -51,7 +51,10 @@
     @endif
 
     <script>
+        console.log('🔵 Air Import Script Loading...');
+        
         function airImportModule() {
+            console.log('🟢 airImportModule() function called');
             return {
                 saved: {{ isset($airImport) ? 'true' : 'false' }},
                 isSaving: false,
@@ -152,7 +155,21 @@
                 ],
                 
                 openDimensionsModal() {
+                    console.log('🟡 openDimensionsModal() called');
+                    console.log('showDimensionsModal before:', this.showDimensionsModal);
                     this.showDimensionsModal = true;
+                    console.log('showDimensionsModal after:', this.showDimensionsModal);
+                    
+                    // Check if modal element exists in DOM
+                    setTimeout(() => {
+                        const modal = document.querySelector('[x-show="showDimensionsModal"]');
+                        console.log('Modal element found:', modal);
+                        if (modal) {
+                            console.log('Modal computed style:', window.getComputedStyle(modal).display);
+                            console.log('Modal inline style:', modal.style.display);
+                        }
+                    }, 100);
+                    
                     if (!this.dimensionRows || this.dimensionRows.length === 0) {
                         this.dimensionRows = [{ selected: false, length: '', width: '', height: '', pcs: 1 }];
                     }
@@ -974,7 +991,7 @@
                                 <div class="form-group-gf">
                                     <label class="form-label-gf">Volume Weight</label>
                                     <div class="form-input-container" style="gap: 8px; align-items:center;">
-                                        <button type="button" @click="openDimensionsModal()" class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px; flex-shrink:0;">Set Dimensions</button>
+                                        <button type="button" @click="console.log('🔴 Button clicked!'); openDimensionsModal()" class="btn-tool" style="background:#5c9bd1; border:none; padding:2px 8px; flex-shrink:0;">Set Dimensions</button>
                                         <input type="number" name="volume_weight_kg" class="form-control-gf" style="flex:1; min-width:0;" value="{{ $airImport->volume_weight_kg ?? '' }}" step="0.01" min="0"> <span style="font-size:10px; color:#555;">KG</span>
                                         <input type="number" name="volume_cbm" class="form-control-gf" style="flex:1; min-width:0;" value="{{ $airImport->volume_cbm ?? '' }}" step="0.001" min="0"> <span style="font-size:10px; color:#555;">CBM</span>
                                     </div>
@@ -1958,8 +1975,7 @@
         <!-- Dimensions Modal -->
     <!-- Volume & Gross Weight Calculator Modal -->
     <div x-show="showDimensionsModal" 
-         x-cloak
-         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;"
+         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex !important; align-items: center; justify-content: center;"
          @click.self="closeDimensionsModal()">
         <div style="background: white; border-radius: 4px; width: 750px; max-width: 95%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-size: 11px;">
             <!-- Modal Header -->
@@ -2422,5 +2438,31 @@
 </div>
 </div>
 
+<div id="toast-container" class="toast-container"></div>
+<script>
+    function showToast(type, msg) {
+        const icons = { success: 'check-circle', error: 'times-circle', info: 'info-circle', warning: 'exclamation-triangle' };
+        const t = document.createElement('div');
+        t.className = 'toast ' + type;
+        t.innerHTML = '<i class="fa fa-' + (icons[type] || 'info-circle') + '"></i> ' + msg;
+        document.getElementById('toast-container').appendChild(t);
+        setTimeout(() => t.remove(), 7000);
+    }
+
+    @if(session('success'))
+        showToast('success', '{{ session('success') }}');
+    @endif
+    @if(session('error'))
+        showToast('error', '{!! addslashes(session('error')) !!}');
+    @endif
+    @if(session('warning'))
+        showToast('warning', '{{ session('warning') }}');
+    @endif
+    @if($errors->any())
+        @foreach($errors->all() as $error)
+            showToast('error', '{!! addslashes($error) !!}');
+        @endforeach
+    @endif
+</script>
 
 </x-layout>

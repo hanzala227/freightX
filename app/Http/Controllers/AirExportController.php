@@ -177,10 +177,45 @@ class AirExportController extends Controller
 
     public function store(StoreAirExportRequest $request)
     {
-        $shipment = $this->airExportService->store($request->validated());
+        try {
+            $shipment = $this->airExportService->store($request->validated());
 
-        return redirect()->route('air-export.edit', $shipment->id)
-            ->with('success', 'Air Export Shipment created successfully.');
+            return redirect()->route('air-export.edit', $shipment->id)
+                ->with('success', 'Air Export Shipment created successfully.');
+                
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('Air Export Store - Database Error:', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode()
+            ]);
+            
+            // Handle duplicate entry errors
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $errorMessage = 'This record already exists. ';
+                
+                if (strpos($e->getMessage(), 'file_no') !== false) {
+                    $errorMessage .= 'File No "' . ($request->file_no ?? '') . '" is already used.';
+                } elseif (strpos($e->getMessage(), 'mawb_no') !== false) {
+                    $errorMessage .= 'MAWB No "' . ($request->mawb_no ?? '') . '" is already used.';
+                } elseif (strpos($e->getMessage(), 'hawb_no') !== false) {
+                    $errorMessage .= 'One or more HAWB numbers are already used.';
+                } else {
+                    $errorMessage .= 'Please check your entries and try again.';
+                }
+                
+                return back()->withInput()->with('error', $errorMessage);
+            }
+            
+            return back()->withInput()->with('error', 'Unable to save the shipment. Please check your data and try again.');
+            
+        } catch (\Exception $e) {
+            \Log::error('Air Export Store - General Error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withInput()->with('error', 'An unexpected error occurred. Please try again or contact support if the problem persists.');
+        }
     }
 
     public function edit(AirExport $airExport)

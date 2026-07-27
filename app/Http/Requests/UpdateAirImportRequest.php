@@ -17,7 +17,7 @@ class UpdateAirImportRequest extends FormRequest
         
         return [
             'file_no' => 'required|string|unique:air_imports,file_no,' . $id,
-            'mawb_no' => 'nullable|string',
+            'mawb_no' => 'nullable|string|unique:air_imports,mawb_no,' . $id,
             'post_date' => 'nullable|date',
             'office_id' => 'nullable|exists:offices,id',
             'op_id' => 'nullable|exists:users,id',
@@ -168,6 +168,20 @@ class UpdateAirImportRequest extends FormRequest
             'charges.*.empty_confirmed_date' => 'nullable|date',
             'charges.*.empty_return_date' => 'nullable|date',
             'charges.*.complete' => 'nullable|boolean',
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            'file_no.required' => 'File number is required',
+            'file_no.unique' => 'This file number already exists. Please use a unique file number.',
+            'mawb_no.unique' => 'This MAWB Number already exists. Please use a unique MAWB number.',
+            'office_id.exists' => 'Selected office is invalid',
+            'carrier_id.exists' => 'Selected carrier is invalid',
+            'oversea_agent_id.exists' => 'Selected oversea agent is invalid',
+            'dep_port_id.exists' => 'Selected departure port is invalid',
+            'dst_port_id.exists' => 'Selected destination port is invalid',
         ];
     }
 }

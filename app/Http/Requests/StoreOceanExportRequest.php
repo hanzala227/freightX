@@ -3,12 +3,24 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class StoreOceanExportRequest extends FormRequest
 {
     public function authorize()
     {
         return true;
+    }
+
+    protected function failedValidation(Validator $validator)
+    {
+        // Ensure old input is flashed to session
+        $this->flash();
+        
+        throw (new ValidationException($validator))
+            ->errorBag($this->errorBag)
+            ->redirectTo($this->getRedirectUrl());
     }
 
     protected function prepareForValidation()
@@ -49,7 +61,7 @@ class StoreOceanExportRequest extends FormRequest
     {
         return [
             'file_no' => 'required|string|unique:ocean_exports,file_no',
-            'mbl_no' => 'nullable|string',
+            'mbl_no' => 'nullable|string|unique:ocean_exports,mbl_no',
             'booking_no' => 'nullable|string',
             'post_date' => 'nullable|date',
             'office_id' => 'nullable|exists:offices,id',
@@ -178,7 +190,7 @@ class StoreOceanExportRequest extends FormRequest
             'containers.*.internal_remarks' => 'nullable|string',
             
             'hbls' => 'nullable|array',
-            'hbls.*.hbl_no' => 'required_with:hbls|string',
+            'hbls.*.hbl_no' => 'required_with:hbls|string|unique:ocean_export_hbls,hbl_no',
             'hbls.*.customer_id' => 'nullable|exists:trade_partners,id',
             'hbls.*.shipper_id' => 'nullable|exists:trade_partners,id',
             'hbls.*.consignee_id' => 'nullable|exists:trade_partners,id',
@@ -231,6 +243,73 @@ class StoreOceanExportRequest extends FormRequest
             'charges.*.financial_date' => 'nullable|date',
             'charges.*.eq_bl_no' => 'nullable|string',
             'charges.*.remark_text' => 'nullable|string',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'file_no.required' => 'File No is required.',
+            'file_no.unique' => 'This File No is already used. Please enter a unique File No.',
+            'mbl_no.unique' => 'This MBL No is already used. Please enter a unique MBL No.',
+            
+            // HBL validation
+            'hbls.*.hbl_no.required_with' => 'HBL No is required for each HBL.',
+            'hbls.*.hbl_no.unique' => 'One or more HBL numbers are already used. Each HBL No must be unique.',
+            
+            // Related records validation
+            'office_id.exists' => 'The selected office does not exist.',
+            'op_id.exists' => 'The selected operator does not exist.',
+            'carrier_id.exists' => 'The selected carrier does not exist.',
+            'vessel_id.exists' => 'The selected vessel does not exist.',
+            'pol_id.exists' => 'The selected Port of Loading does not exist.',
+            'pod_id.exists' => 'The selected Port of Discharge does not exist.',
+            'dm_customer_id.exists' => 'The selected customer does not exist.',
+            'dm_shipper_id.exists' => 'The selected shipper does not exist.',
+            'dm_consignee_id.exists' => 'The selected consignee does not exist.',
+            'dm_notify_id.exists' => 'The selected notify party does not exist.',
+            'trucker_id.exists' => 'The selected trucker does not exist.',
+            
+            // Container validation
+            'containers.*.container_type_id.exists' => 'One or more selected container types do not exist.',
+            'containers.*.pkg_unit_id.exists' => 'One or more selected package units do not exist.',
+            'containers.*.trucker_id.exists' => 'One or more selected truckers do not exist.',
+            
+            // HBL related records
+            'hbls.*.customer_id.exists' => 'One or more selected customers do not exist.',
+            'hbls.*.shipper_id.exists' => 'One or more selected shippers do not exist.',
+            'hbls.*.consignee_id.exists' => 'One or more selected consignees do not exist.',
+            'hbls.*.notify_party_id.exists' => 'One or more selected notify parties do not exist.',
+            
+            // Date validation
+            'etd.date' => 'ETD must be a valid date.',
+            'eta.date' => 'ETA must be a valid date.',
+            'post_date.date' => 'Post Date must be a valid date.',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'file_no' => 'File No',
+            'mbl_no' => 'MBL No',
+            'booking_no' => 'Booking No',
+            'office_id' => 'Office',
+            'op_id' => 'Operator',
+            'carrier_id' => 'Carrier',
+            'vessel_id' => 'Vessel',
+            'pol_id' => 'Port of Loading',
+            'pod_id' => 'Port of Discharge',
+            'del_id' => 'Place of Delivery',
+            'fdest_id' => 'Final Destination',
+            'dm_customer_id' => 'Customer',
+            'dm_shipper_id' => 'Shipper',
+            'dm_consignee_id' => 'Consignee',
+            'dm_notify_id' => 'Notify Party',
+            'etd' => 'ETD',
+            'eta' => 'ETA',
+            'atd' => 'ATD',
+            'ata' => 'ATA',
         ];
     }
 }

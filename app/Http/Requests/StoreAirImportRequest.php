@@ -16,7 +16,7 @@ class StoreAirImportRequest extends FormRequest
         return [
             // Required fields
             'file_no' => 'required|string|unique:air_imports,file_no',
-            'mawb_no' => 'required|string|max:255',
+            'mawb_no' => 'required|string|max:255|unique:air_imports,mawb_no',
             'office_id' => 'required|exists:offices,id',
             'eta' => 'required|date',
             
@@ -177,8 +177,9 @@ class StoreAirImportRequest extends FormRequest
     {
         return [
             'file_no.required' => 'File number is required',
-            'file_no.unique' => 'This file number already exists',
+            'file_no.unique' => 'This file number already exists. Please use a unique file number.',
             'mawb_no.required' => 'MAWB Number is required',
+            'mawb_no.unique' => 'This MAWB Number already exists. Please use a unique MAWB number.',
             'office_id.required' => 'Office is required',
             'office_id.exists' => 'Selected office is invalid',
             'eta.required' => 'ETA is required',

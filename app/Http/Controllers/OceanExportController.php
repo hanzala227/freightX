@@ -295,17 +295,61 @@ class OceanExportController extends Controller
 
         try {
             $shipment = $this->oceanExportService->store($data);
+            
+            return redirect()->route('ocean-export.edit', $shipment->id)
+                ->with('success', 'Shipment created successfully.');
+                
         } catch (\Illuminate\Database\QueryException $e) {
-            if (str_contains($e->getMessage(), 'foreign key constraint fails')) {
-                $data = $this->nullifyAllForeignKeys($data);
-                $shipment = $this->oceanExportService->store($data);
-            } else {
-                throw $e;
+            \Log::error('Ocean Export Store - Database Error:', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode()
+            ]);
+            
+            // Handle duplicate entry errors
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $errorMessage = 'This record already exists. ';
+                
+                // Check which field is duplicate
+                if (strpos($e->getMessage(), 'file_no') !== false) {
+                    $errorMessage .= 'File No "' . ($request->file_no ?? '') . '" is already used.';
+                } elseif (strpos($e->getMessage(), 'mbl_no') !== false) {
+                    $errorMessage .= 'MBL No "' . ($request->mbl_no ?? '') . '" is already used.';
+                } elseif (strpos($e->getMessage(), 'hbl_no') !== false) {
+                    $errorMessage .= 'One or more HBL numbers are already used.';
+                } elseif (strpos($e->getMessage(), 'container_no') !== false) {
+                    $errorMessage .= 'One or more container numbers are already used.';
+                } else {
+                    $errorMessage .= 'Please check your entries and try again.';
+                }
+                
+                return back()->withInput()->with('error', $errorMessage);
             }
+            
+            // Handle foreign key constraint errors - try to nullify and save
+            if (str_contains($e->getMessage(), 'foreign key constraint fails')) {
+                try {
+                    $data = $this->nullifyAllForeignKeys($data);
+                    $shipment = $this->oceanExportService->store($data);
+                    
+                    return redirect()->route('ocean-export.edit', $shipment->id)
+                        ->with('warning', 'Shipment created but some related records were not found and were removed.');
+                        
+                } catch (\Exception $retryException) {
+                    return back()->withInput()->with('error', 'Invalid reference: One or more related records do not exist. Please check your selections.');
+                }
+            }
+            
+            // Generic database error
+            return back()->withInput()->with('error', 'Unable to save the shipment. Please check your data and try again.');
+            
+        } catch (\Exception $e) {
+            \Log::error('Ocean Export Store - General Error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withInput()->with('error', 'An unexpected error occurred. Please try again or contact support if the problem persists.');
         }
-
-        return redirect()->route('ocean-export.edit', $shipment->id)
-            ->with('success', 'Shipment created successfully.');
     }
 
     public function edit(OceanExport $oceanExport)
@@ -369,16 +413,61 @@ class OceanExportController extends Controller
 
         try {
             $this->oceanExportService->update($oceanExport, $data);
+            
+            return back()->with('success', 'Shipment updated successfully.');
+            
         } catch (\Illuminate\Database\QueryException $e) {
-            if (str_contains($e->getMessage(), 'foreign key constraint fails')) {
-                $data = $this->nullifyAllForeignKeys($data);
-                $this->oceanExportService->update($oceanExport, $data);
-            } else {
-                throw $e;
+            \Log::error('Ocean Export Update - Database Error:', [
+                'id' => $oceanExport->id,
+                'error' => $e->getMessage(),
+                'code' => $e->getCode()
+            ]);
+            
+            // Handle duplicate entry errors
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $errorMessage = 'This record already exists. ';
+                
+                // Check which field is duplicate
+                if (strpos($e->getMessage(), 'file_no') !== false) {
+                    $errorMessage .= 'File No "' . ($request->file_no ?? '') . '" is already used by another shipment.';
+                } elseif (strpos($e->getMessage(), 'mbl_no') !== false) {
+                    $errorMessage .= 'MBL No "' . ($request->mbl_no ?? '') . '" is already used by another shipment.';
+                } elseif (strpos($e->getMessage(), 'hbl_no') !== false) {
+                    $errorMessage .= 'One or more HBL numbers are already used.';
+                } elseif (strpos($e->getMessage(), 'container_no') !== false) {
+                    $errorMessage .= 'One or more container numbers are already used.';
+                } else {
+                    $errorMessage .= 'Please check your entries and try again.';
+                }
+                
+                return back()->withInput()->with('error', $errorMessage);
             }
+            
+            // Handle foreign key constraint errors - try to nullify and save
+            if (str_contains($e->getMessage(), 'foreign key constraint fails')) {
+                try {
+                    $data = $this->nullifyAllForeignKeys($data);
+                    $this->oceanExportService->update($oceanExport, $data);
+                    
+                    return back()->with('warning', 'Shipment updated but some related records were not found and were removed.');
+                    
+                } catch (\Exception $retryException) {
+                    return back()->withInput()->with('error', 'Invalid reference: One or more related records do not exist. Please check your selections.');
+                }
+            }
+            
+            // Generic database error
+            return back()->withInput()->with('error', 'Unable to update the shipment. Please check your data and try again.');
+            
+        } catch (\Exception $e) {
+            \Log::error('Ocean Export Update - General Error:', [
+                'id' => $oceanExport->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withInput()->with('error', 'An unexpected error occurred. Please try again or contact support if the problem persists.');
         }
-
-        return back()->with('success', 'Shipment updated successfully.');
     }
 
     private function nullifyAllForeignKeys(array $data): array
