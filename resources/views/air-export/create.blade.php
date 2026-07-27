@@ -91,6 +91,35 @@
                 showMore: false,
                 showConnectingFlight: false,
                 hawbs: [],
+                
+                init() {
+                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
+                    console.log('Init - Shipment ID:', shipmentId);
+                    
+                    // Check URL for tab parameter
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const tabParam = urlParams.get('tab');
+                    if (tabParam) {
+                        this.activeTab = tabParam;
+                        console.log('Tab from URL:', tabParam);
+                    }
+                    
+                    // Watch for tab changes - fetch work orders EVERY TIME workorder tab opens
+                    this.$watch('activeTab', (newTab) => {
+                        console.log('Tab changed to:', newTab);
+                        if (newTab === 'workorder' && shipmentId) {
+                            console.log('Calling fetchWorkOrders...');
+                            this.fetchWorkOrders();
+                        }
+                    });
+                    
+                    // If already on workorder tab on page load, fetch immediately
+                    if (this.activeTab === 'workorder' && shipmentId) {
+                        console.log('Already on workorder tab, fetching...');
+                        this.fetchWorkOrders();
+                    }
+                },
+                
                 form: {
                     file_no: '{{ isset($airExport) ? $airExport->file_no : "MAE-" . date("YmdHis") }}',
                     mawb_no: '{{ isset($airExport) ? $airExport->mawb_no : "" }}',
@@ -133,6 +162,13 @@
                     selling_rate: '{{ isset($airExport) ? $airExport->selling_rate : "" }}',
                     sales_type: '{{ isset($airExport) ? $airExport->sales_type : "" }}',
                     internal_remark: '{{ isset($airExport) ? $airExport->internal_remark : "" }}',
+                    route: {
+                        departure: { airport_id: '', etd: '', atd: '', carrier_id: '' },
+                        trans1: { airport_id: '', eta: '', ata: '', etd: '', atd: '', flight_no: '', carrier_id: '' },
+                        trans2: { airport_id: '', eta: '', ata: '', etd: '', atd: '', flight_no: '', carrier_id: '' },
+                        trans3: { airport_id: '', eta: '', ata: '', etd: '', atd: '', flight_no: '', carrier_id: '' },
+                        final: { airport_id: '', eta: '', ata: '' }
+                    },
                     other_charges: [],
                     accounting_info: [],
                     commodities: [],
@@ -210,6 +246,10 @@
                     document.getElementById('airExportForm').submit();
                 },
                 init() {
+                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
+                    console.log('Init - Shipment ID:', shipmentId);
+                    
+                    // Load existing HAWBs if any
                     @if(isset($airExport) && $airExport->hbls->count() > 0)
                         this.hawbs = {!! json_encode($airExport->hbls->map(function($hbl) {
                             return [
@@ -309,6 +349,200 @@
                     if (typeof showToast === 'function') {
                         showToast('success', 'Quotation data loaded successfully');
                     }
+                },
+                createInvoice(type) {
+                    // Check if shipment is saved
+                    if (!{{ isset($airExport) && $airExport->id ? $airExport->id : 0 }}) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Please save the shipment first before creating invoices');
+                        }
+                        return;
+                    }
+
+                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
+                    
+                    // Define routes for each invoice type
+                    const routes = {
+                        'revenue': `/accounting/invoice/create?type=AR&shipment_type=air_export&shipment_id=${shipmentId}`,
+                        'dc_note': `/accounting/invoice/create?type=DC&shipment_type=air_export&shipment_id=${shipmentId}`,
+                        'cost': `/accounting/invoice/create?type=AP&shipment_type=air_export&shipment_id=${shipmentId}`
+                    };
+
+                    // Open invoice creation page in new tab
+                    if (routes[type]) {
+                        window.open(routes[type], '_blank');
+                    } else {
+                        if (typeof showToast === 'function') {
+                            showToast('info', `${type} invoice creation - Coming soon`);
+                        }
+                    }
+                },
+                
+                // Work Order Management
+                workOrders: [],
+                selectedWorkOrders: [],
+                loadingWorkOrders: false,
+                
+                async fetchWorkOrders() {
+                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
+                    if (!shipmentId) {
+                        this.workOrders = [];
+                        return;
+                    }
+                    
+                    this.loadingWorkOrders = true;
+                    try {
+                        // Use the proper class name for polymorphic relationship
+                        const response = await fetch(`/api/work-orders?workable_type=App\\Models\\AirExport&workable_id=${shipmentId}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            // API returns array directly, not wrapped in data property
+                            this.workOrders = Array.isArray(data) ? data : (data.data || []);
+                            console.log('Work orders loaded:', this.workOrders.length);
+                        } else {
+                            console.error('Failed to fetch work orders:', response.status);
+                            this.workOrders = [];
+                        }
+                    } catch (error) {
+                        console.error('Error fetching work orders:', error);
+                        this.workOrders = [];
+                    } finally {
+                        this.loadingWorkOrders = false;
+                    }
+                },
+                
+                createWorkOrder() {
+                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
+                    if (!shipmentId) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Please save the shipment first before creating work orders');
+                        }
+                        return;
+                    }
+                    
+                    // Build URL with shipment context - use proper class name and add source for redirect
+                    const url = `/ocean-export/work-order/create?` +
+                               `workable_type=App\\Models\\AirExport&` +
+                               `workable_id=${shipmentId}&` +
+                               `mbl_no=${encodeURIComponent(this.form.mawb_no || '')}&` +
+                               `file_no=${encodeURIComponent(this.form.file_no || '')}&` +
+                               `source=air_export&` +
+                               `source_id=${shipmentId}`;
+                    
+                    window.open(url, '_blank');
+                },
+                
+                editWorkOrder(workOrderId) {
+                    const shipmentId = {{ isset($airExport) && $airExport->id ? $airExport->id : 0 }};
+                    const url = `/ocean-export/work-order/${workOrderId}/edit?` +
+                               `source=air_export&` +
+                               `source_id=${shipmentId}`;
+                    window.open(url, '_blank');
+                },
+                
+                async deleteWorkOrder(workOrderId) {
+                    if (!confirm('Are you sure you want to delete this work order?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/ocean-export/work-order/${workOrderId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            if (typeof showToast === 'function') {
+                                showToast('success', 'Work order deleted successfully');
+                            }
+                            this.fetchWorkOrders();
+                            // Remove from selected if it was selected
+                            this.selectedWorkOrders = this.selectedWorkOrders.filter(id => id !== workOrderId);
+                        } else {
+                            if (typeof showToast === 'function') {
+                                showToast('error', 'Failed to delete work order');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error deleting work order:', error);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Error deleting work order');
+                        }
+                    }
+                },
+                
+                async bulkDeleteWorkOrders() {
+                    if (this.selectedWorkOrders.length === 0) {
+                        return;
+                    }
+                    
+                    if (!confirm(`Are you sure you want to delete ${this.selectedWorkOrders.length} work order(s)?`)) {
+                        return;
+                    }
+                    
+                    let successCount = 0;
+                    let failCount = 0;
+                    
+                    for (const workOrderId of this.selectedWorkOrders) {
+                        try {
+                            const response = await fetch(`/ocean-export/work-order/${workOrderId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                successCount++;
+                            } else {
+                                failCount++;
+                            }
+                        } catch (error) {
+                            failCount++;
+                        }
+                    }
+                    
+                    if (typeof showToast === 'function') {
+                        if (successCount > 0) {
+                            showToast('success', `${successCount} work order(s) deleted successfully`);
+                        }
+                        if (failCount > 0) {
+                            showToast('error', `Failed to delete ${failCount} work order(s)`);
+                        }
+                    }
+                    
+                    this.selectedWorkOrders = [];
+                    this.fetchWorkOrders();
+                },
+                
+                toggleWorkOrder(workOrderId) {
+                    const index = this.selectedWorkOrders.indexOf(workOrderId);
+                    if (index > -1) {
+                        this.selectedWorkOrders.splice(index, 1);
+                    } else {
+                        this.selectedWorkOrders.push(workOrderId);
+                    }
+                },
+                
+                toggleAllWorkOrders() {
+                    if (this.selectedWorkOrders.length === this.workOrders.length) {
+                        this.selectedWorkOrders = [];
+                    } else {
+                        this.selectedWorkOrders = this.workOrders.map(wo => wo.id);
+                    }
+                },
+                
+                refreshWorkOrders() {
+                    if (typeof showToast === 'function') {
+                        showToast('info', 'Refreshing work orders...');
+                    }
+                    this.fetchWorkOrders();
                 }
             };
         };
@@ -437,6 +671,194 @@
                             <div class="flex flex-col">
                                 <div class="form-group-gf"><label class="form-label-gf">Connecting Flight</label><div class="form-input-container"><button type="button" class="btn-default-gf" style="height:18px; padding:0 4px;" @click="showConnectingFlight = !showConnectingFlight">Expand <i class="fa" :class="showConnectingFlight ? 'fa-minus-square-o' : 'fa-plus-square-o'"></i></button></div></div>
                                 <div class="form-group-gf"><label class="form-label-gf">ATA</label><div class="form-input-container"><input type="date" name="ata" class="form-control-gf" x-model="form.ata"></div></div>
+                            </div>
+                        </div>
+
+                        <!-- Connecting Flight Route Table -->
+                        <div x-show="showConnectingFlight" x-collapse style="margin-top: 15px;">
+                            <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px;">
+                                <h4 style="font-size: 12px; font-weight: 600; color: #333; margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 1px solid #ddd;">
+                                    <i class="fa fa-route" style="color: #3b82f6;"></i> Route
+                                </h4>
+                                
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; background: white;">
+                                        <thead>
+                                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 100px;"></th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 150px;">Airport</th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 100px;">ETA</th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 100px;">ATA</th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 100px;">ETD</th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 100px;">ATD</th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 100px;">Flight No.</th>
+                                                <th style="padding: 8px; text-align: left; font-weight: 600; border: 1px solid #e0e0e0; min-width: 150px;">Carrier</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Departure -->
+                                            <tr>
+                                                <td style="padding: 8px; font-weight: 600; background: #fafafa; border: 1px solid #e0e0e0;">Departure</td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[departure][airport_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.departure.airport_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($ports as $port)
+                                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[departure][etd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.departure.etd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #fff8e1;">
+                                                    <input type="date" name="route[departure][atd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.departure.atd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[departure][carrier_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.departure.carrier_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($agents->where('type', 'carrier') as $carrier)
+                                                            <option value="{{ $carrier->id }}">{{ $carrier->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                            </tr>
+
+                                            <!-- Trans 1 -->
+                                            <tr>
+                                                <td style="padding: 8px; font-weight: 600; background: #fafafa; border: 1px solid #e0e0e0;">Trans 1</td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[trans1][airport_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.airport_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($ports as $port)
+                                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans1][eta]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.eta">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans1][ata]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.ata">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans1][etd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.etd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans1][atd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.atd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="text" name="route[trans1][flight_no]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.flight_no">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[trans1][carrier_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans1.carrier_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($agents->where('type', 'carrier') as $carrier)
+                                                            <option value="{{ $carrier->id }}">{{ $carrier->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                            </tr>
+
+                                            <!-- Trans 2 -->
+                                            <tr>
+                                                <td style="padding: 8px; font-weight: 600; background: #fafafa; border: 1px solid #e0e0e0;">Trans 2</td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[trans2][airport_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.airport_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($ports as $port)
+                                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans2][eta]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.eta">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans2][ata]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.ata">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans2][etd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.etd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans2][atd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.atd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="text" name="route[trans2][flight_no]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.flight_no">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[trans2][carrier_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans2.carrier_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($agents->where('type', 'carrier') as $carrier)
+                                                            <option value="{{ $carrier->id }}">{{ $carrier->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                            </tr>
+
+                                            <!-- Trans 3 -->
+                                            <tr>
+                                                <td style="padding: 8px; font-weight: 600; background: #fafafa; border: 1px solid #e0e0e0;">Trans 3</td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[trans3][airport_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.airport_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($ports as $port)
+                                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans3][eta]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.eta">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans3][ata]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.ata">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans3][etd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.etd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[trans3][atd]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.atd">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="text" name="route[trans3][flight_no]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.flight_no">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[trans3][carrier_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.trans3.carrier_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($agents->where('type', 'carrier') as $carrier)
+                                                            <option value="{{ $carrier->id }}">{{ $carrier->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                            </tr>
+
+                                            <!-- Final Destination -->
+                                            <tr>
+                                                <td style="padding: 8px; font-weight: 600; background: #fafafa; border: 1px solid #e0e0e0;">Final Destination</td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <select name="route[final][airport_id]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.final.airport_id">
+                                                        <option value="">Select...</option>
+                                                        @foreach($ports as $port)
+                                                            <option value="{{ $port->id }}">{{ $port->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[final][eta]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.final.eta">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0;">
+                                                    <input type="date" name="route[final][ata]" class="form-control-gf" style="height: 22px; font-size: 11px; width: 100%;" x-model="form.route.final.ata">
+                                                </td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                                <td style="padding: 4px; border: 1px solid #e0e0e0; background: #f9f9f9;"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
 
@@ -817,9 +1239,9 @@
                         <div class="portlet-body">
                             <div style="background: #eef1f5; padding: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                                 <div style="display: flex; gap: 5px;">
-                                    <button class="btn-gofreight" style="background: #32c5d2;"><i class="fa fa-plus"></i> Origin Revenue (Invoice/AR) <i class="fa fa-angle-down"></i></button>
-                                    <button class="btn-gofreight" style="background: #32c5d2;"><i class="fa fa-plus"></i> Destination Revenue/Cost (D/C Note) <i class="fa fa-angle-down"></i></button>
-                                    <button class="btn-gofreight" style="background: #32c5d2;"><i class="fa fa-plus"></i> Origin Cost (AP) <i class="fa fa-angle-down"></i></button>
+                                    <button type="button" class="btn-gofreight" style="background: #32c5d2;" @click.prevent="createInvoice('revenue')"><i class="fa fa-plus"></i> Origin Revenue (Invoice/AR) <i class="fa fa-angle-down"></i></button>
+                                    <button type="button" class="btn-gofreight" style="background: #32c5d2;" @click.prevent="createInvoice('dc_note')"><i class="fa fa-plus"></i> Destination Revenue/Cost (D/C Note) <i class="fa fa-angle-down"></i></button>
+                                    <button type="button" class="btn-gofreight" style="background: #32c5d2;" @click.prevent="createInvoice('cost')"><i class="fa fa-plus"></i> Origin Cost (AP) <i class="fa fa-angle-down"></i></button>
                                 </div>
                                 <div>
                                     <label style="font-size: 10px; display: flex; align-items: center; gap: 4px; color: #666; margin: 0;">
@@ -952,39 +1374,110 @@
                         <div class="portlet-title" style="background: #666; color: #fff;">
                             <div class="caption">
                                 <span style="font-size: 11px; margin-right: 5px;">MAWB</span>
+                                <span class="caption-subject" style="color: #fff;" x-text="form.mawb_no"></span>
                             </div>
                             <div class="actions" style="display: flex; gap: 5px; align-items: center;">
-                                <button class="btn-default-gf dark"><i class="fa fa-cogs"></i> Tools <i class="fa fa-angle-down"></i></button>
-                                <i class="fa fa-angle-down" style="cursor: pointer; padding: 0 5px;"></i>
+                                <button type="button" class="btn-default-gf dark" @click="refreshWorkOrders"><i class="fa fa-refresh"></i></button>
+                                <button type="button" class="btn-default-gf dark"><i class="fa fa-cogs"></i> Tools <i class="fa fa-angle-down"></i></button>
                             </div>
                         </div>
                         <div class="portlet-body" style="padding: 10px;">
-                            <div style="background: #eef1f5; padding: 5px; margin-bottom: 5px; display: flex;">
+                            <div style="background: #eef1f5; padding: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
                                 <div class="btn-group" style="display: flex; gap: 2px;">
-                                    <button class="btn-gofreight" style="background: #32c5d2; padding: 4px 8px; border-radius: 2px;"><i class="fa fa-plus"></i></button>
-                                    <button class="btn-default-gf dark" style="background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 2px; color: #999;" disabled><i class="fa fa-trash"></i></button>
+                                    <button type="button" class="btn-gofreight" style="background: #32c5d2; padding: 4px 8px; border-radius: 2px;" @click="createWorkOrder">
+                                        <i class="fa fa-plus"></i> New Work Order
+                                    </button>
+                                    <button type="button" class="btn-default-gf dark" style="background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 2px;" 
+                                            :class="selectedWorkOrders.length === 0 ? 'opacity-50' : ''" 
+                                            :disabled="selectedWorkOrders.length === 0"
+                                            @click="bulkDeleteWorkOrders">
+                                        <i class="fa fa-trash"></i> Delete Selected
+                                    </button>
+                                </div>
+                                <div style="font-size: 10px; color: #666;">
+                                    <span x-show="workOrders.length > 0" x-text="`${workOrders.length} work order(s)`"></span>
+                                    <span x-show="selectedWorkOrders.length > 0" x-text="` | ${selectedWorkOrders.length} selected`"></span>
                                 </div>
                             </div>
                             
-                            <table class="table-custom" style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                            <div x-show="loadingWorkOrders" style="text-align: center; padding: 40px;">
+                                <i class="fa fa-spinner fa-spin" style="font-size: 24px; color: #32c5d2;"></i>
+                                <div style="margin-top: 10px; color: #666; font-size: 11px;">Loading work orders...</div>
+                            </div>
+
+                            <table class="table-custom" style="width: 100%; border-collapse: collapse; font-size: 10px;" x-show="!loadingWorkOrders">
                                 <thead>
                                     <tr style="background: #a0a8b3; color: #fff;">
-                                        <th style="width: 30px; text-align: center; border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">
-                                            <input type="checkbox" disabled>
+                                        <th style="width: 30px; text-align: center; border: 1px solid #e7ecf1;">
+                                            <input type="checkbox" @change="toggleAllWorkOrders" :checked="selectedWorkOrders.length === workOrders.length && workOrders.length > 0">
                                         </th>
-                                        <th style="text-align: center; border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">No.</th>
-                                        <th style="text-align: center; border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">D/O Type</th>
-                                        <th style="border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">Freight Pickup</th>
-                                        <th style="border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">Delivery</th>
-                                        <th style="border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">Trucker</th>
-                                        <th style="text-align: center; border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">Last Modified</th>
-                                        <th style="text-align: center; border: 1px solid #e7ecf1; background: #a0a8b3; color: #fff;">Actions</th>
+                                        <th style="text-align: center; border: 1px solid #e7ecf1;">W/O No.</th>
+                                        <th style="text-align: center; border: 1px solid #e7ecf1;">Subject</th>
+                                        <th style="border: 1px solid #e7ecf1;">Freight Pickup</th>
+                                        <th style="border: 1px solid #e7ecf1;">Delivery</th>
+                                        <th style="border: 1px solid #e7ecf1;">Vendor/Trucker</th>
+                                        <th style="text-align: center; border: 1px solid #e7ecf1;">Issue Date</th>
+                                        <th style="text-align: center; border: 1px solid #e7ecf1;">Last Modified</th>
+                                        <th style="text-align: center; border: 1px solid #e7ecf1; width: 100px;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td colspan="8" style="text-align: center; color: #999; padding: 20px;">No records found.</td>
-                                    </tr>
+                                    <template x-if="workOrders.length === 0">
+                                        <tr>
+                                            <td colspan="9" style="text-align: center; color: #999; padding: 40px;">
+                                                <i class="fa fa-inbox" style="font-size: 32px; opacity: 0.3; display: block; margin-bottom: 10px;"></i>
+                                                No work orders found. Click "New Work Order" to create one.
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-for="(wo, index) in workOrders" :key="wo.id">
+                                        <tr style="border-bottom: 1px solid #e7ecf1;" :style="selectedWorkOrders.includes(wo.id) ? 'background: #f0f8ff;' : ''">
+                                            <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
+                                                <input type="checkbox" :value="wo.id" :checked="selectedWorkOrders.includes(wo.id)" @change="toggleWorkOrder(wo.id)">
+                                            </td>
+                                            <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
+                                                <a :href="`/ocean-export/work-order/${wo.id}/edit?source=air_export&source_id={{ isset($airExport) ? $airExport->id : '' }}`" 
+                                                   target="_blank"
+                                                   style="color: #4b77be; text-decoration: none; font-weight: 600;"
+                                                   x-text="wo.work_order_no">
+                                                </a>
+                                            </td>
+                                            <td style="border: 1px solid #e7ecf1; padding: 8px;" x-text="wo.subject || 'N/A'"></td>
+                                            <td style="border: 1px solid #e7ecf1; padding: 8px;">
+                                                <div style="font-size: 9px; color: #666; margin-bottom: 2px;" x-text="wo.freight_pickup_location_name || 'N/A'"></div>
+                                                <div style="font-size: 9px; color: #999;" x-text="wo.freight_pickup_date || ''"></div>
+                                            </td>
+                                            <td style="border: 1px solid #e7ecf1; padding: 8px;">
+                                                <div style="font-size: 9px; color: #666; margin-bottom: 2px;" x-text="wo.empty_return_location_name || 'N/A'"></div>
+                                                <div style="font-size: 9px; color: #999;" x-text="wo.empty_return_date || ''"></div>
+                                            </td>
+                                            <td style="border: 1px solid #e7ecf1; padding: 8px;">
+                                                <span style="font-size: 9px; color: #666;" x-text="wo.vendor_name || 'N/A'"></span>
+                                            </td>
+                                            <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
+                                                <span style="font-size: 9px; color: #666;" x-text="wo.issue_date || 'N/A'"></span>
+                                            </td>
+                                            <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
+                                                <span style="font-size: 9px; color: #999;" x-text="wo.updated_at || 'N/A'"></span>
+                                            </td>
+                                            <td style="text-align: center; border: 1px solid #e7ecf1; padding: 8px;">
+                                                <div style="display: flex; gap: 4px; justify-content: center;">
+                                                    <button type="button" @click="editWorkOrder(wo.id)" 
+                                                            class="btn-tool" 
+                                                            style="background: #3b82f6; color: #fff; border: none; padding: 4px 8px; border-radius: 2px; cursor: pointer; font-size: 9px;"
+                                                            title="Edit">
+                                                        <i class="fa fa-edit"></i>
+                                                    </button>
+                                                    <button type="button" @click="deleteWorkOrder(wo.id)" 
+                                                            class="btn-tool" 
+                                                            style="background: #e74c3c; color: #fff; border: none; padding: 4px 8px; border-radius: 2px; cursor: pointer; font-size: 9px;"
+                                                            title="Delete">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -993,7 +1486,7 @@
 
                 <!-- HBL Sidebar (col-2) -->
                 <div style="flex: 1; display: flex; flex-direction: column;">
-                    <button class="btn-default-gf" style="width: 100%; padding: 6px; font-weight: 600; font-size: 11px; margin-bottom: 10px; justify-content: center;" @click="activeTab='basic'; showMblSection=false; addHawb()">+ Add HAWB</button>
+                    <button type="button" class="btn-default-gf" style="width: 100%; padding: 6px; font-weight: 600; font-size: 11px; margin-bottom: 10px; justify-content: center;" @click="activeTab='basic'; showMblSection=false; addHawb()">+ Add HAWB</button>
                     <hr style="margin: 0 0 10px 0; border-top: 1px solid #ddd;">
                     <div style="background: #fff; border: 1px solid #e7ecf1; border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 5px; flex: 1; height: 100%;">
                         <template x-for="(hawb, index) in hawbs" :key="index">

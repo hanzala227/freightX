@@ -19,52 +19,6 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════ CHANGE OP MODAL ═══════════════════════ --}}
-    <div class="overlay" id="change-op-overlay" onclick="if(event.target===this) closeChangeOp()">
-        <div class="modal-box">
-            <div class="modal-header">
-                <div class="modal-header-title"><i class="fa fa-user" style="color:#3b82f6;"></i> Change Operator</div>
-                <button class="modal-close" onclick="closeChangeOp()"><i class="fa fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom:10px;font-size:10px;color:#475569;">Assign a new operator to <strong id="change-op-count">0</strong> selected shipment(s).</div>
-                <select id="change-op-select" class="input-inline" style="width:100%;height:24px;font-size:10px;">
-                    <option value="">Select Operator...</option>
-                    @foreach($users as $u)
-                        <option value="{{ $u->id }}">{{ $u->name }}</option>
-                    @endforeach
-                </select>
-                <div style="margin-top:12px;text-align:right;">
-                    <button class="btn-tool" onclick="closeChangeOp()" style="padding:0 14px;height:22px;">Cancel</button>
-                    <button class="btn-tool green" onclick="executeChangeOp()" style="padding:0 14px;height:22px;"><i class="fa fa-check"></i> Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ═══════════════════════ CHANGE SALES MODAL ═══════════════════════ --}}
-    <div class="overlay" id="change-sales-overlay" onclick="if(event.target===this) closeChangeSales()">
-        <div class="modal-box">
-            <div class="modal-header">
-                <div class="modal-header-title"><i class="fa fa-user-md" style="color:#3b82f6;"></i> Change Sales Person</div>
-                <button class="modal-close" onclick="closeChangeSales()"><i class="fa fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom:10px;font-size:10px;color:#475569;">Assign a new sales person to <strong id="change-sales-count">0</strong> selected shipment(s).</div>
-                <select id="change-sales-select" class="input-inline" style="width:100%;height:24px;font-size:10px;">
-                    <option value="">Select Sales Person...</option>
-                    @foreach($users as $u)
-                        <option value="{{ $u->id }}">{{ $u->name }}</option>
-                    @endforeach
-                </select>
-                <div style="margin-top:12px;text-align:right;">
-                    <button class="btn-tool" onclick="closeChangeSales()" style="padding:0 14px;height:22px;">Cancel</button>
-                    <button class="btn-tool green" onclick="executeChangeSales()" style="padding:0 14px;height:22px;"><i class="fa fa-check"></i> Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {{-- ═══════════════════════ DELETE CONFIRM MODAL ═══════════════════════ --}}
     <div class="overlay" id="confirm-overlay" onclick="if(event.target===this) closeConfirm()">
         <div class="confirm-box">
@@ -149,8 +103,6 @@
                     <div class="btn-group">
                         <button class="btn-tool" id="btn-block"   disabled style="padding:0 12px;" onclick="blockSelected()">Block</button>
                         <button class="btn-tool" id="btn-unblock" disabled style="padding:0 12px;" onclick="unblockSelected()">Unblock</button>
-                        <button class="btn-tool" id="btn-change-op" disabled onclick="openChangeOp()"><i class="fa fa-user"></i> OP</button>
-                        <button class="btn-tool" id="btn-change-sales" disabled onclick="openChangeSales()"><i class="fa fa-user-md"></i> Sales</button>
                     </div>
                 </div>
                 <form method="GET" action="{{ route('air-export.index') }}" style="display:flex;align-items:center;gap:6px;margin:0;">
@@ -256,9 +208,10 @@
                                         <th class="sticky-col sticky-col-header" data-col="check"   style="width:25px;text-align:center;">
                                             <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" title="Select All">
                                         </th>
-                                        <th class="sticky-col sticky-col-header" data-col="file_no" style="width:110px;left:25px;">File No.</th>
-                                        <th class="sticky-col sticky-col-header" data-col="color"   style="width:35px;left:135px;text-align:center;">CR</th>
-                                        <th class="sticky-col sticky-col-header" data-col="mawb_no" style="width:150px;left:170px;">MAWB No.</th>
+                                        <th class="sticky-col sticky-col-header" data-col="lock"    style="width:25px;left:25px;text-align:center;"><i class="fa fa-lock"></i></th>
+                                        <th class="sticky-col sticky-col-header" data-col="file_no" style="width:110px;left:50px;">File No.</th>
+                                        <th class="sticky-col sticky-col-header" data-col="color"   style="width:35px;left:160px;text-align:center;">CR</th>
+                                        <th class="sticky-col sticky-col-header" data-col="mawb_no" style="width:150px;left:195px;">MAWB No.</th>
                                         <th data-col="status"     style="width:70px;">Status</th>
                                         <th data-col="flight_no"  style="width:80px;">Flight No.</th>
                                         <th data-col="hbl_count"  style="width:40px;text-align:right;">HBL</th>
@@ -283,22 +236,23 @@
                                     {{-- ── FILTER ROW (hidden by default) ── --}}
                                     <tr id="filter-row" style="display:none;">
                                         <td class="sticky-col" style="left:0;"></td>
-                                        <td class="sticky-col" style="left:25px;"><input class="filter-input" data-col-idx="1" placeholder="File No.." oninput="applyFilters()"></td>
-                                        <td class="sticky-col" style="left:135px;"></td>
-                                        <td class="sticky-col" style="left:170px;"><input class="filter-input" data-col-idx="3" placeholder="MAWB.." oninput="applyFilters()"></td>
+                                        <td class="sticky-col" style="left:25px;"></td>
+                                        <td class="sticky-col" style="left:50px;"><input class="filter-input" data-col-idx="2" placeholder="File No.." oninput="applyFilters()"></td>
+                                        <td class="sticky-col" style="left:160px;"></td>
+                                        <td class="sticky-col" style="left:195px;"><input class="filter-input" data-col-idx="4" placeholder="MAWB.." oninput="applyFilters()"></td>
                                         <td></td>
                                         <td></td>
                                         <td></td>
-                                        <td><input class="filter-input" data-col-idx="7" placeholder="Office.." oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="8" placeholder="Shipper.." oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="9" placeholder="ETD.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="8" placeholder="Office.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="9" placeholder="Shipper.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="10" placeholder="ETD.." oninput="applyFilters()"></td>
                                         <td></td>
-                                        <td><input class="filter-input" data-col-idx="11" placeholder="ETA.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="12" placeholder="ETA.." oninput="applyFilters()"></td>
                                         <td></td>
-                                        <td><input class="filter-input" data-col-idx="13" placeholder="Dep.." oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="14" placeholder="Dst.." oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="15" placeholder="OA.." oninput="applyFilters()"></td>
-                                        <td><input class="filter-input" data-col-idx="16" placeholder="Customer.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="14" placeholder="Dep.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="15" placeholder="Dst.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="16" placeholder="OA.." oninput="applyFilters()"></td>
+                                        <td><input class="filter-input" data-col-idx="17" placeholder="Customer.." oninput="applyFilters()"></td>
                                         <td colspan="6"></td>
                                     </tr>
                                 </thead>
@@ -329,13 +283,19 @@
                                         <td class="sticky-col" style="width:25px;text-align:center;" onclick="event.stopPropagation()">
                                             <input type="checkbox" name="ids[]" value="{{ $shipment->id }}" class="row-check" onchange="updateToolbar()">
                                         </td>
-                                        <td class="sticky-col" style="left:25px;" onclick="event.stopPropagation()">
+                                        <td class="sticky-col" style="width:25px;left:25px;text-align:center;" onclick="event.stopPropagation()">
+                                            <i class="fa {{ $isBlocked ? 'fa-lock' : 'fa-unlock' }}" 
+                                               style="color:{{ $isBlocked ? '#94a3b8' : '#22c55e' }};cursor:pointer;font-size:10px;" 
+                                               title="{{ $isBlocked ? 'Lock' : 'Unlock' }}" 
+                                               onclick="toggleLock(this)"></i>
+                                        </td>
+                                        <td class="sticky-col" style="left:50px;" onclick="event.stopPropagation()">
                                             <a href="{{ route('air-export.edit', $shipment->id) }}" class="col-link">{{ $shipment->file_no }}</a>
                                         </td>
-                                        <td class="sticky-col" style="left:135px;text-align:center;">
+                                        <td class="sticky-col" style="left:160px;text-align:center;">
                                             <span class="color-mark" style="background:{{ $shipment->color ?? '#94a3b8' }}" title="Click to change status color" onclick="event.stopPropagation();openColorPicker({{ $shipment->id }}, '{{ $shipment->color ?? '' }}')"></span>
                                         </td>
-                                        <td class="sticky-col" style="left:170px;" onclick="event.stopPropagation()">
+                                        <td class="sticky-col" style="left:195px;" onclick="event.stopPropagation()">
                                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                                 <span>{{ $shipment->mawb_no ?: '--' }}</span>
                                                 <i class="fa fa-eye"
@@ -427,8 +387,6 @@
         document.getElementById('btn-copy').disabled    = n !== 1;
         document.getElementById('btn-block').disabled   = n === 0;
         document.getElementById('btn-unblock').disabled = n === 0;
-        document.getElementById('btn-change-op').disabled = n === 0;
-        document.getElementById('btn-change-sales').disabled = n === 0;
 
         var badge = document.getElementById('sel-badge');
         badge.style.display = n > 0 ? 'inline' : 'none';
@@ -498,9 +456,9 @@
     }
 
     var FILTER_MAP = {
-        1: 'filter_file_no', 3: 'filter_mawb_no', 7: 'filter_office',
-        8: 'filter_shipper', 9: 'filter_etd', 11: 'filter_eta',
-        13: 'filter_dep', 14: 'filter_dst', 15: 'filter_oa', 16: 'filter_customer'
+        2: 'filter_file_no', 4: 'filter_mawb_no', 8: 'filter_office',
+        9: 'filter_shipper', 10: 'filter_etd', 12: 'filter_eta',
+        14: 'filter_dep', 15: 'filter_dst', 16: 'filter_oa', 17: 'filter_customer'
     };
 
     function applyFilters() {
@@ -544,7 +502,7 @@
     /* ================================================================
        CONFIG PANEL — column visibility
     ================================================================ */
-    var PINNED_COLS = ['check', 'file_no', 'color', 'mawb_no'];
+    var PINNED_COLS = ['check', 'lock', 'file_no', 'color', 'mawb_no'];
 
     function toggleConfig() {
         var panel = document.getElementById('config-panel');
@@ -647,10 +605,72 @@
         })
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
+            if (d.success) { 
+                showToast('success', d.message); 
+                // Update lock icons for affected rows
+                ids.forEach(function(id) {
+                    var row = document.getElementById('shipment-row-' + id);
+                    if (row) {
+                        var lockIcon = row.querySelector('.fa-lock, .fa-unlock');
+                        if (lockIcon) {
+                            var shouldLock = label === 'Blocked';
+                            lockIcon.classList.toggle('fa-lock', shouldLock);
+                            lockIcon.classList.toggle('fa-unlock', !shouldLock);
+                            lockIcon.style.color = shouldLock ? '#94a3b8' : '#22c55e';
+                            lockIcon.title = shouldLock ? 'Lock' : 'Unlock';
+                        }
+                        // Update status badge
+                        var statusBadge = row.querySelector('.badge-status');
+                        if (statusBadge) {
+                            statusBadge.textContent = shouldLock ? 'Blocked' : 'Open';
+                            statusBadge.className = 'badge-status ' + (shouldLock ? 'bg-red' : 'bg-green');
+                        }
+                    }
+                });
+                updateToolbar();
+            }
             else showToast('error', d.message || label + ' failed.');
         })
         .catch(function() { showToast('error', label + ' failed.'); });
+    }
+
+    /* ================================================================
+       LOCK ICON TOGGLE (per-row visual with backend update)
+    ================================================================ */
+    function toggleLock(el) {
+        var row = el.closest('tr');
+        var id = row.dataset.id;
+        var locked = el.classList.contains('fa-lock');
+        var action = locked ? 'unblock' : 'block';
+        var url = action === 'block' 
+            ? '{{ route("air-export.bulk-block") }}' 
+            : '{{ route("air-export.bulk-unblock") }}';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ ids: [id] })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+                el.classList.toggle('fa-lock', !locked);
+                el.classList.toggle('fa-unlock', locked);
+                el.style.color = locked ? '#22c55e' : '#94a3b8';
+                el.title = locked ? 'Unlock' : 'Lock';
+                // Update status badge
+                var statusBadge = row.querySelector('.badge-status');
+                if (statusBadge) {
+                    statusBadge.textContent = locked ? 'Open' : 'Blocked';
+                    statusBadge.className = 'badge-status ' + (locked ? 'bg-green' : 'bg-red');
+                }
+                showToast('success', locked ? 'Shipment unlocked' : 'Shipment locked');
+            } else {
+                showToast('error', data.message || 'Failed to update');
+            }
+        }).catch(function() { showToast('error', 'Failed to update lock status'); });
     }
 
     /* ================================================================
@@ -744,66 +764,6 @@
     }
 
     /* ================================================================
-       CHANGE OP
-    ================================================================ */
-    function openChangeOp() {
-        var n = document.querySelectorAll('.row-check:checked').length;
-        if (!n) return;
-        document.getElementById('change-op-count').textContent = n;
-        document.getElementById('change-op-select').value = '';
-        document.getElementById('change-op-overlay').classList.add('open');
-    }
-    function closeChangeOp() { document.getElementById('change-op-overlay').classList.remove('open'); }
-    function executeChangeOp() {
-        var opId = document.getElementById('change-op-select').value;
-        if (!opId) { showToast('error', 'Please select an operator.'); return; }
-        var ids = getSelectedIds();
-        if (!ids.length) return;
-        closeChangeOp();
-        fetch('{{ route("air-export.bulk-change-op") }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ ids: ids, op_id: opId })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || 'Failed to change operator.');
-        })
-        .catch(function() { showToast('error', 'Failed to change operator.'); });
-    }
-
-    /* ================================================================
-       CHANGE SALES
-    ================================================================ */
-    function openChangeSales() {
-        var n = document.querySelectorAll('.row-check:checked').length;
-        if (!n) return;
-        document.getElementById('change-sales-count').textContent = n;
-        document.getElementById('change-sales-select').value = '';
-        document.getElementById('change-sales-overlay').classList.add('open');
-    }
-    function closeChangeSales() { document.getElementById('change-sales-overlay').classList.remove('open'); }
-    function executeChangeSales() {
-        var salesPersonId = document.getElementById('change-sales-select').value;
-        if (!salesPersonId) { showToast('error', 'Please select a sales person.'); return; }
-        var ids = getSelectedIds();
-        if (!ids.length) return;
-        closeChangeSales();
-        fetch('{{ route("air-export.bulk-change-sales") }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ ids: ids, sales_person_id: salesPersonId })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
-            else showToast('error', d.message || 'Failed to change sales.');
-        })
-        .catch(function() { showToast('error', 'Failed to change sales.'); });
-    }
-
-    /* ================================================================
        CSV EXPORT (respects current filters)
     ================================================================ */
     function exportCsv() {
@@ -813,7 +773,21 @@
         params.forEach(function(val, key) {
             url.searchParams.set(key, val);
         });
-        window.location.href = url.toString();
+        
+        // Show toast notification
+        showToast('info', 'Preparing Excel export...');
+        
+        // Trigger download without page refresh using hidden iframe
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url.toString();
+        document.body.appendChild(iframe);
+        
+        // Remove iframe after download starts (5 seconds)
+        setTimeout(function() {
+            document.body.removeChild(iframe);
+            showToast('success', 'Excel export downloaded');
+        }, 5000);
     }
 
     /* ================================================================

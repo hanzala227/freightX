@@ -131,12 +131,6 @@
                                 <option value="{{ $op->id }}">{{ $op->name }}</option>
                             @endforeach
                         </select>
-                        <select class="select-tool" id="sel-sales" disabled onchange="changeSales(this)">
-                            <option value="">Change Sales</option>
-                            @foreach($users as $u)
-                                <option value="{{ $u->id }}">{{ $u->name }}</option>
-                            @endforeach
-                        </select>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
@@ -224,9 +218,10 @@
                                     <th class="sticky-col sticky-col-header" data-col="check" style="width:25px;text-align:center;left:0;">
                                         <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" title="Select All">
                                     </th>
-                                    <th class="sticky-col sticky-col-header" data-col="file_no" style="width:110px;left:25px;">File No.</th>
-                                    <th class="sticky-col sticky-col-header" data-col="color" style="width:35px;left:135px;text-align:center;">CR</th>
-                                    <th class="sticky-col sticky-col-header" data-col="mawb_no" style="width:150px;left:170px;">MAWB No.</th>
+                                    <th class="sticky-col sticky-col-header" data-col="lock" style="width:25px;left:25px;text-align:center;"><i class="fa fa-lock"></i></th>
+                                    <th class="sticky-col sticky-col-header" data-col="file_no" style="width:110px;left:50px;">File No.</th>
+                                    <th class="sticky-col sticky-col-header" data-col="color" style="width:35px;left:160px;text-align:center;">CR</th>
+                                    <th class="sticky-col sticky-col-header" data-col="mawb_no" style="width:150px;left:195px;">MAWB No.</th>
 
                                     <th data-col="status" style="width:70px;">Status</th>
                                     <th data-col="flight_no" style="width:90px;">Flight No.</th>
@@ -250,17 +245,18 @@
                                 {{-- Filter Row --}}
                                 <tr id="filter-row" style="display:none;background:#eff6ff;">
                                     <td class="sticky-col" style="left:0;"></td>
-                                    <td class="sticky-col" style="left:25px;"><input class="filter-input" style="width:100%;" data-col-idx="1" placeholder="File No.." oninput="applyFilters()"></td>
-                                    <td class="sticky-col" style="left:135px;"></td>
-                                    <td class="sticky-col" style="left:170px;"><input class="filter-input" style="width:100%;" data-col-idx="3" placeholder="MAWB.." oninput="applyFilters()"></td>
+                                    <td class="sticky-col" style="left:25px;"></td>
+                                    <td class="sticky-col" style="left:50px;"><input class="filter-input" style="width:100%;" data-col-idx="2" placeholder="File No.." oninput="applyFilters()"></td>
+                                    <td class="sticky-col" style="left:160px;"></td>
+                                    <td class="sticky-col" style="left:195px;"><input class="filter-input" style="width:100%;" data-col-idx="4" placeholder="MAWB.." oninput="applyFilters()"></td>
                                     <td colspan="3"></td>
-                                    <td><input class="filter-input" data-col-idx="7" placeholder="ETD.." oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="8" placeholder="ETA.." oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="9" placeholder="Dep.." oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="10" placeholder="Dest.." oninput="applyFilters()"></td>
-                                    <td><input class="filter-input" data-col-idx="11" placeholder="Shipper.." oninput="applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="8" placeholder="ETD.." oninput="applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="9" placeholder="ETA.." oninput="applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="10" placeholder="Dep.." oninput="applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="11" placeholder="Dest.." oninput="applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="12" placeholder="Shipper.." oninput="applyFilters()"></td>
                                     <td></td>
-                                    <td><input class="filter-input" data-col-idx="13" placeholder="Customer.." oninput="applyFilters()"></td>
+                                    <td><input class="filter-input" data-col-idx="14" placeholder="Customer.." oninput="applyFilters()"></td>
                                     <td colspan="7"></td>
                                 </tr>
                             </thead>
@@ -291,16 +287,22 @@
                                     <td class="sticky-col" style="left:0;text-align:center;" onclick="event.stopPropagation()">
                                         <input type="checkbox" class="row-check" value="{{ $shipment->id }}" onchange="updateToolbar()">
                                     </td>
-                                    <td class="sticky-col" style="left:25px;" onclick="event.stopPropagation()">
+                                    <td class="sticky-col" style="width:25px;left:25px;text-align:center;" onclick="event.stopPropagation()">
+                                        <i class="fa {{ $isBlocked ? 'fa-lock' : 'fa-unlock' }}" 
+                                           style="color:{{ $isBlocked ? '#94a3b8' : '#22c55e' }};cursor:pointer;font-size:10px;" 
+                                           title="{{ $isBlocked ? 'Lock' : 'Unlock' }}" 
+                                           onclick="toggleLock(this)"></i>
+                                    </td>
+                                    <td class="sticky-col" style="left:50px;" onclick="event.stopPropagation()">
                                         <div style="display:flex;align-items:center;justify-content:space-between;">
                                             <a href="{{ route('air-export.edit', $shipment->id) }}" class="col-link">{{ $shipment->file_no }}</a>
                                             <i class="fa fa-external-link" style="color:#94a3b8;font-size:10px;cursor:pointer;" title="Open" onclick="event.stopPropagation();window.location.href='{{ route('air-export.edit', $shipment->id) }}'"></i>
                                         </div>
                                     </td>
-                                    <td class="sticky-col" style="left:135px;text-align:center;">
+                                    <td class="sticky-col" style="left:160px;text-align:center;">
                                         <span class="color-mark" style="background:{{ $shipment->color ?? '#94a3b8' }}" title="Click to change status color" onclick="event.stopPropagation();openColorPicker({{ $shipment->id }}, '{{ $shipment->color ?? '' }}')"></span>
                                     </td>
-                                    <td class="sticky-col" style="left:170px;" onclick="event.stopPropagation()">
+                                    <td class="sticky-col" style="left:195px;" onclick="event.stopPropagation()">
                                         <div style="display:flex;align-items:center;justify-content:space-between;">
                                             <span>{{ $shipment->mawb_no ?: '--' }}</span>
                                             <i class="fa fa-eye" style="color:#3b82f6;font-size:10px;cursor:pointer;" title="Quick view MAWB" onclick="event.stopPropagation();showMbl({
@@ -390,7 +392,6 @@
         document.getElementById('btn-block').disabled    = n === 0;
         document.getElementById('btn-unblock').disabled  = n === 0;
         document.getElementById('sel-op').disabled       = n === 0;
-        document.getElementById('sel-sales').disabled     = n === 0;
 
         var badge = document.getElementById('sel-badge');
         badge.style.display = n > 0 ? 'inline' : 'none';
@@ -460,10 +461,10 @@
     }
 
     var FILTER_MAP = {
-        1: 'filter_file_no', 3: 'filter_mawb_no',
-        7: 'filter_etd', 8: 'filter_eta',
-        9: 'filter_dep', 10: 'filter_dst',
-        11: 'filter_shipper', 13: 'filter_customer'
+        2: 'filter_file_no', 4: 'filter_mawb_no',
+        8: 'filter_etd', 9: 'filter_eta',
+        10: 'filter_dep', 11: 'filter_dst',
+        12: 'filter_shipper', 14: 'filter_customer'
     };
 
     function applyFilters() {
@@ -502,7 +503,7 @@
     /* ================================================================
        CONFIG PANEL — column visibility
     ================================================================ */
-    var PINNED_COLS = ['check', 'file_no', 'color', 'mawb_no'];
+    var PINNED_COLS = ['check', 'lock', 'file_no', 'color', 'mawb_no'];
 
     function toggleConfig() {
         var panel = document.getElementById('config-panel');
@@ -605,30 +606,81 @@
         })
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (d.success) { showToast('success', d.message); updateGrid(window.location.href); }
+            if (d.success) { 
+                showToast('success', d.message); 
+                // Update lock icons for affected rows
+                ids.forEach(function(id) {
+                    var row = document.getElementById('shipment-row-' + id);
+                    if (row) {
+                        var lockIcon = row.querySelector('.fa-lock, .fa-unlock');
+                        if (lockIcon) {
+                            var shouldLock = label === 'Blocked';
+                            lockIcon.classList.toggle('fa-lock', shouldLock);
+                            lockIcon.classList.toggle('fa-unlock', !shouldLock);
+                            lockIcon.style.color = shouldLock ? '#94a3b8' : '#22c55e';
+                            lockIcon.title = shouldLock ? 'Lock' : 'Unlock';
+                        }
+                        // Update status badge
+                        var statusBadge = row.querySelector('.badge-status');
+                        if (statusBadge) {
+                            statusBadge.textContent = shouldLock ? 'Blocked' : 'Open';
+                            statusBadge.className = 'badge-status ' + (shouldLock ? 'bg-red' : 'bg-green');
+                        }
+                    }
+                });
+                updateToolbar();
+            }
             else showToast('error', d.message || label + ' failed.');
         })
         .catch(function() { showToast('error', label + ' failed.'); });
     }
 
     /* ================================================================
-       CHANGE OP / SALES
+       LOCK ICON TOGGLE (per-row visual with backend update)
+    ================================================================ */
+    function toggleLock(el) {
+        var row = el.closest('tr');
+        var id = row.dataset.id;
+        var locked = el.classList.contains('fa-lock');
+        var action = locked ? 'unblock' : 'block';
+        var url = action === 'block' 
+            ? '{{ route("air-export.bulk-block") }}' 
+            : '{{ route("air-export.bulk-unblock") }}';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ ids: [id] })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+                el.classList.toggle('fa-lock', !locked);
+                el.classList.toggle('fa-unlock', locked);
+                el.style.color = locked ? '#22c55e' : '#94a3b8';
+                el.title = locked ? 'Unlock' : 'Lock';
+                // Update status badge
+                var statusBadge = row.querySelector('.badge-status');
+                if (statusBadge) {
+                    statusBadge.textContent = locked ? 'Open' : 'Blocked';
+                    statusBadge.className = 'badge-status ' + (locked ? 'bg-green' : 'bg-red');
+                }
+                showToast('success', locked ? 'Shipment unlocked' : 'Shipment locked');
+            } else {
+                showToast('error', data.message || 'Failed to update');
+            }
+        }).catch(function() { showToast('error', 'Failed to update lock status'); });
+    }
+
+    /* ================================================================
+       CHANGE OP
     ================================================================ */
     function changeOp(sel) {
         var val = sel.value;
         if (!val) return;
-        _changeMode = 'op';
         document.getElementById('change-user-title').textContent = 'Change OP';
-        document.getElementById('change-user-overlay').classList.add('open');
-        document.getElementById('change-user-select').value = val;
-        sel.value = '';
-    }
-
-    function changeSales(sel) {
-        var val = sel.value;
-        if (!val) return;
-        _changeMode = 'sales';
-        document.getElementById('change-user-title').textContent = 'Change Sales Person';
         document.getElementById('change-user-overlay').classList.add('open');
         document.getElementById('change-user-select').value = val;
         sel.value = '';
@@ -641,10 +693,8 @@
         if (!userId) { showToast('error', 'Please select a user.'); return; }
         var ids = getSelectedIds();
         if (!ids.length) { closeChangeUser(); return; }
-        var url = _changeMode === 'sales' ? '{{ route("air-export.bulk-change-sales") }}' : '{{ route("air-export.bulk-change-op") }}';
-        var body = { ids: ids };
-        if (_changeMode === 'sales') body.sales_person_id = userId;
-        else body.op_id = userId;
+        var url = '{{ route("air-export.bulk-change-op") }}';
+        var body = { ids: ids, op_id: userId };
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
@@ -768,7 +818,21 @@
             }
         });
         var url = '/air-export/mbl-export-csv?' + params.toString();
-        window.location.href = url;
+        
+        // Show toast notification
+        showToast('info', 'Preparing Excel export...');
+        
+        // Trigger download without page refresh using hidden iframe
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        
+        // Remove iframe after download starts (5 seconds)
+        setTimeout(function() {
+            document.body.removeChild(iframe);
+            showToast('success', 'Excel export downloaded');
+        }, 5000);
     }
 
     /* ================================================================

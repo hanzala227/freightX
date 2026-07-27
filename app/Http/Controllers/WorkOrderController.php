@@ -31,16 +31,22 @@ class WorkOrderController extends Controller
 
         $workOrders = WorkOrder::where('workable_type', $request->workable_type)
             ->where('workable_id', $request->workable_id)
-            ->with('vendor')
+            ->with(['vendor', 'freightPickupLocation', 'emptyPickupLocation'])
             ->latest()
             ->get()
             ->map(function ($wo) {
                 return [
                     'id' => $wo->id,
-                    'no' => $wo->work_order_no,
-                    'type' => $wo->subject ?? 'PICKUP & DELIVERY ORDER',
-                    'trucker' => $wo->vendor->name ?? 'N/A',
-                    'date' => $wo->issue_date ? $wo->issue_date->format('m/d/Y') : ($wo->created_at ? $wo->created_at->format('m/d/Y') : 'N/A'),
+                    'work_order_no' => $wo->work_order_no,
+                    'subject' => $wo->subject ?? 'PICKUP & DELIVERY ORDER',
+                    'vendor_name' => $wo->vendor->name ?? 'N/A',
+                    'issue_date' => $wo->issue_date ? $wo->issue_date->format('m/d/Y') : null,
+                    'freight_pickup_location_name' => $wo->freightPickupLocation->name ?? null,
+                    'freight_pickup_date' => $wo->freight_pickup_date,
+                    'empty_return_location_name' => $wo->emptyPickupLocation->name ?? null,
+                    'empty_return_date' => $wo->empty_pickup_date,
+                    'updated_at' => $wo->updated_at ? $wo->updated_at->format('m/d/Y H:i') : null,
+                    'created_at' => $wo->created_at ? $wo->created_at->format('m/d/Y H:i') : null,
                 ];
             });
 
@@ -51,9 +57,17 @@ class WorkOrderController extends Controller
     {
         $workableType = $request->query('workable_type');
         $workableId = $request->query('workable_id');
+        
+        // Store source information for redirect after save
+        $source = $request->query('source'); // e.g., 'air_export'
+        $sourceId = $request->query('source_id'); // e.g., shipment ID
 
         $workable = null;
         $prefilledData = [];
+        
+        // Handle different mbl_no parameter names
+        $mblNo = $request->query('mbl_no') ?? $request->query('mawb_no') ?? '';
+        $fileNo = $request->query('file_no') ?? '';
 
         if ($workableType && $workableId) {
             if ($workableType === 'App\Models\OceanBooking' || $workableType === 'OceanBooking') {
@@ -81,7 +95,39 @@ class WorkOrderController extends Controller
                         'etd'              => $workable->etd ? $workable->etd->format('Y-m-d') : '',
                     ];
                 }
+            } elseif ($workableType === 'App\Models\AirExport' || $workableType === 'AirExport') {
+                // Air Export handling
+                $workableType = \App\Models\AirExport::class;
+                $workable = \App\Models\AirExport::find($workableId);
+                if ($workable) {
+                    $prefilledData = [
+                        'mbl_no'           => $workable->mawb_no ?? $mblNo,
+                        'file_no'          => $workable->file_no ?? $fileNo,
+                        'carrier_bkg_no'   => $workable->mawb_no ?? '',
+                        'etd'              => $workable->etd ? $workable->etd->format('Y-m-d') : '',
+                    ];
+                }
+            } elseif ($workableType === 'App\Models\AirImport' || $workableType === 'AirImport') {
+                // Air Import handling
+                $workableType = \App\Models\AirImport::class;
+                $workable = \App\Models\AirImport::find($workableId);
+                if ($workable) {
+                    $prefilledData = [
+                        'mbl_no'           => $workable->mawb_no ?? $mblNo,
+                        'file_no'          => $workable->file_no ?? $fileNo,
+                        'carrier_bkg_no'   => $workable->mawb_no ?? '',
+                        'etd'              => $workable->etd ? $workable->etd->format('Y-m-d') : '',
+                    ];
+                }
             }
+        }
+        
+        // Add mbl_no and file_no to prefilled data if provided
+        if ($mblNo && !isset($prefilledData['mbl_no'])) {
+            $prefilledData['mbl_no'] = $mblNo;
+        }
+        if ($fileNo && !isset($prefilledData['file_no'])) {
+            $prefilledData['file_no'] = $fileNo;
         }
 
         // Generate work order number if none exists
@@ -99,7 +145,9 @@ class WorkOrderController extends Controller
             'workOrderNo',
             'tradePartners',
             'ports',
-            'vessels'
+            'vessels',
+            'source',
+            'sourceId'
         ));
     }
 
@@ -157,17 +205,52 @@ class WorkOrderController extends Controller
             $workOrder = WorkOrder::create($validated);
             DB::commit();
 
-            if ($request->wantsJson()) {
-                return response()->json(['success' => true, 'id' => $workOrder->id]);
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'id' => $workOrder->id, 'work_order' => $workOrder]);
             }
 
+            // Check if we have source information to redirect back
+            $source = $request->input('source');
+            $sourceId = $request->input('source_id');
+            
+            \Log::info('Work Order Redirect Debug', [
+                'source' => $source,
+                'sourceId' => $sourceId,
+                'workOrderId' => $workOrder->id
+            ]);
+            
+            if ($source && $sourceId) {
+                // Redirect to source page with success message and active tab parameter
+                $redirectMap = [
+                    'air_export' => ['route' => 'air-export.edit', 'param' => 'air_export'],
+                    'air_import' => ['route' => 'air-import.edit', 'param' => 'air_import'],
+                    'ocean_export' => ['route' => 'ocean-export.edit', 'param' => 'ocean_export'],
+                    'ocean_import' => ['route' => 'ocean-import.edit', 'param' => 'ocean_import'],
+                ];
+                
+                if (isset($redirectMap[$source])) {
+                    $routeInfo = $redirectMap[$source];
+                    \Log::info('Redirecting to source', [
+                        'route' => $routeInfo['route'],
+                        'param' => $routeInfo['param'],
+                        'id' => $sourceId
+                    ]);
+                    
+                    return redirect()->route($routeInfo['route'], [
+                        $routeInfo['param'] => $sourceId,
+                        'tab' => 'workorder'
+                    ])->with('success', 'Work order created successfully');
+                }
+            }
+
+            \Log::info('No source, redirecting to edit');
             return redirect()->route('ocean-export.work-order.edit', $workOrder->id)
                 ->with('success', 'Work Order created successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Work Order Store Error: ' . $e->getMessage());
 
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() || $request->ajax()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
             }
 
@@ -181,6 +264,10 @@ class WorkOrderController extends Controller
         $workable = $workOrder->workable;
         $workableType = $workOrder->workable_type;
         $workableId = $workOrder->workable_id;
+        
+        // Get source information from URL (for redirect after update)
+        $source = request()->query('source');
+        $sourceId = request()->query('source_id');
 
         $tradePartners = TradePartner::orderBy('name')->get();
         $ports = Port::orderBy('name')->get();
@@ -193,7 +280,9 @@ class WorkOrderController extends Controller
             'workable',
             'tradePartners',
             'ports',
-            'vessels'
+            'vessels',
+            'source',
+            'sourceId'
         ));
     }
 
@@ -251,17 +340,52 @@ class WorkOrderController extends Controller
             $workOrder->update($validated);
             DB::commit();
 
-            if ($request->wantsJson()) {
-                return response()->json(['success' => true, 'id' => $workOrder->id]);
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'id' => $workOrder->id, 'work_order' => $workOrder]);
             }
 
+            // Check if we have source information to redirect back
+            $source = $request->input('source');
+            $sourceId = $request->input('source_id');
+            
+            \Log::info('Work Order Update Redirect Debug', [
+                'source' => $source,
+                'sourceId' => $sourceId,
+                'workOrderId' => $workOrder->id
+            ]);
+            
+            if ($source && $sourceId) {
+                // Redirect to source page with success message and active tab parameter
+                $redirectMap = [
+                    'air_export' => ['route' => 'air-export.edit', 'param' => 'air_export'],
+                    'air_import' => ['route' => 'air-import.edit', 'param' => 'air_import'],
+                    'ocean_export' => ['route' => 'ocean-export.edit', 'param' => 'ocean_export'],
+                    'ocean_import' => ['route' => 'ocean-import.edit', 'param' => 'ocean_import'],
+                ];
+                
+                if (isset($redirectMap[$source])) {
+                    $routeInfo = $redirectMap[$source];
+                    \Log::info('Redirecting to source after update', [
+                        'route' => $routeInfo['route'],
+                        'param' => $routeInfo['param'],
+                        'id' => $sourceId
+                    ]);
+                    
+                    return redirect()->route($routeInfo['route'], [
+                        $routeInfo['param'] => $sourceId,
+                        'tab' => 'workorder'
+                    ])->with('success', 'Work order updated successfully');
+                }
+            }
+
+            \Log::info('No source, redirecting to edit after update');
             return redirect()->route('ocean-export.work-order.edit', $workOrder->id)
                 ->with('success', 'Work Order updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Work Order Update Error: ' . $e->getMessage());
 
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() || $request->ajax()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
             }
 
