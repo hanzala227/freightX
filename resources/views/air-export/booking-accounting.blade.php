@@ -105,6 +105,35 @@
                 get totalAr() { return this.chargesList.filter(c => c.type === 'AR' || c.type === 'DC_NOTE').reduce((s, c) => s + (parseFloat(c.amount) || 0), 0); },
                 get totalAp() { return this.chargesList.filter(c => c.type === 'AP').reduce((s, c) => s + (parseFloat(c.amount) || 0), 0); },
                 get totalBalance() { return this.totalAr - this.totalAp; },
+                createInvoice(type) {
+                    // Check if booking is saved
+                    if (!this.bookingId) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Please save the booking first before creating invoices');
+                        } else {
+                            alert('Please save the booking first before creating invoices');
+                        }
+                        return;
+                    }
+                    
+                    // Define routes for each invoice type
+                    const routes = {
+                        'AR': `/accounting/invoice/create?type=AR&shipment_type=air_booking&shipment_id=${this.bookingId}`,
+                        'DC': `/accounting/invoice/create?type=DC&shipment_type=air_booking&shipment_id=${this.bookingId}`,
+                        'AP': `/accounting/invoice/create?type=AP&shipment_type=air_booking&shipment_id=${this.bookingId}`
+                    };
+
+                    // Open invoice creation page in new tab
+                    if (routes[type]) {
+                        window.open(routes[type], '_blank');
+                    } else {
+                        if (typeof showToast === 'function') {
+                            showToast('info', `${type} invoice creation - Coming soon`);
+                        } else {
+                            alert(`${type} invoice creation - Coming soon`);
+                        }
+                    }
+                },
                 init() {
                     if (this.bookingId) {
                         fetch('/air-export/booking/' + this.bookingId + '/charges')
@@ -186,9 +215,15 @@
             <div class="portlet-body" style="padding: 0;">
 
             <div class="accounting-toolbar">
-                <a href="#" @click.prevent="openChargeModal('AR')" class="btn-gofreight"><i class="fa fa-plus"></i> ORIGIN REVENUE (INVOICE/AR)</a>
-                <a href="#" @click.prevent="openChargeModal('DC')" class="btn-gofreight">DESTINATION REVENUE/COST (D/C NOTE)</a>
-                <a href="#" @click.prevent="openChargeModal('AP')" class="btn-gofreight">ORIGIN COST (AP)</a>
+                <button type="button" @click.prevent="createInvoice('AR')" class="btn-gofreight" style="background: #32c5d2; border: none; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.2s;">
+                    <i class="fa fa-plus"></i> ORIGIN REVENUE (INVOICE/AR)
+                </button>
+                <button type="button" @click.prevent="createInvoice('DC')" class="btn-gofreight" style="background: #32c5d2; border: none; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.2s;">
+                    <i class="fa fa-plus"></i> DESTINATION REVENUE/COST (D/C NOTE)
+                </button>
+                <button type="button" @click.prevent="createInvoice('AP')" class="btn-gofreight" style="background: #32c5d2; border: none; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.2s;">
+                    <i class="fa fa-plus"></i> ORIGIN COST (AP)
+                </button>
                 <div style="flex: 1;"></div>
                 <label style="font-size: 10px; font-weight: 600; color: #666; display: flex; align-items: center; gap: 4px; cursor: pointer;">
                     <input type="checkbox" x-model="includeDraft"> INCLUDE DRAFT AMOUNT
@@ -375,4 +410,80 @@
         </div>
     </div>
 </div>
+
+<div id="toast-container" class="toast-container"></div>
+<script>
+    function showToast(type, msg) {
+        const icons = { success: 'check-circle', error: 'times-circle', info: 'info-circle', warning: 'exclamation-triangle' };
+        const container = document.getElementById('toast-container') || (() => {
+            const c = document.createElement('div');
+            c.id = 'toast-container';
+            c.className = 'toast-container';
+            document.body.appendChild(c);
+            return c;
+        })();
+        
+        const t = document.createElement('div');
+        t.className = 'toast ' + type;
+        t.innerHTML = '<i class="fa fa-' + (icons[type] || 'info-circle') + '"></i> ' + msg;
+        container.appendChild(t);
+        setTimeout(() => t.remove(), 7000);
+    }
+
+    @if(session('success'))
+        showToast('success', '{{ session('success') }}');
+    @endif
+    @if(session('error'))
+        showToast('error', '{!! addslashes(session('error')) !!}');
+    @endif
+    @if(session('warning'))
+        showToast('warning', '{{ session('warning') }}');
+    @endif
+    @if($errors->any())
+        @foreach($errors->all() as $error)
+            showToast('error', '{!! addslashes($error) !!}');
+        @endforeach
+    @endif
+</script>
+
+<style>
+    .toast-container {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+    }
+    .toast {
+        min-width: 280px;
+        padding: 14px 18px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 6.5s forwards;
+        pointer-events: all;
+    }
+    .toast i { font-size: 16px; }
+    .toast.success { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); }
+    .toast.error { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .toast.warning { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
+    .toast.info { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+    
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; transform: translateX(400px); }
+    }
+</style>
 </x-layout>
