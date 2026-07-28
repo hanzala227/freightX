@@ -52,6 +52,62 @@
             position: relative;
             min-width: 0;
         }
+        
+        /* Toast Notification Styles */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #fff;
+            padding: 12px 18px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 9999;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .toast-notification i {
+            font-size: 16px;
+        }
+        
+        .toast-notification.toast-success {
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        
+        .toast-notification.toast-success i {
+            color: #10b981;
+        }
+        
+        .toast-notification.toast-error {
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        .toast-notification.toast-error i {
+            color: #ef4444;
+        }
+        
+        .toast-notification.toast-info {
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        
+        .toast-notification.toast-info i {
+            color: #3b82f6;
+        }
     </style>
     @endpush
 
@@ -227,16 +283,79 @@
                 this.filteredPartners = this.partners.slice(0, 20);
             },
 
-            downloadReport() {
+            async downloadReport() {
                 if (!this.hasInput) return;
-                const params = new URLSearchParams();
-                params.append('ship_type', this.form.ship_type);
-                params.append('date_field', this.form.date_type);
-                params.append('date_from', this.form.date_from);
-                params.append('date_to', this.form.date_to);
-                params.append('trade_partner_id', this.form.trade_partner_id);
-                params.append('report_type', this.form.report_type);
-                window.location.href = '{{ route("report.shipment.download") }}?' + params.toString();
+                
+                // Show loading toast
+                this.showToast('Generating report...', 'info');
+                
+                try {
+                    const params = new URLSearchParams();
+                    params.append('ship_type', this.form.ship_type);
+                    params.append('date_field', this.form.date_type);
+                    params.append('date_from', this.form.date_from);
+                    params.append('date_to', this.form.date_to);
+                    params.append('trade_partner_id', this.form.trade_partner_id);
+                    params.append('report_type', this.form.report_type);
+                    
+                    const response = await fetch('{{ route("report.shipment.download") }}?' + params.toString(), {
+                        method: 'GET',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'text/csv'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Download failed');
+                    }
+                    
+                    // Get the blob from response
+                    const blob = await response.blob();
+                    
+                    // Create download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'shipment-report-' + new Date().toISOString().split('T')[0] + '.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Cleanup
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    this.showToast('Report downloaded successfully!', 'success');
+                    
+                } catch (error) {
+                    console.error('Download error:', error);
+                    this.showToast('Failed to download report. Please try again.', 'error');
+                }
+            },
+
+            showToast(message, type = 'info') {
+                // Remove existing toasts
+                const existingToast = document.querySelector('.toast-notification');
+                if (existingToast) existingToast.remove();
+
+                // Create toast element
+                const toast = document.createElement('div');
+                toast.className = 'toast-notification toast-' + type;
+                toast.innerHTML = `
+                    <i class="fa fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                `;
+                document.body.appendChild(toast);
+
+                // Show toast with animation
+                setTimeout(() => toast.classList.add('show'), 10);
+
+                // Auto hide after 3 seconds
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
             },
 
             resetForm() {

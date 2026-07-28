@@ -778,7 +778,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/shipment', [\App\Http\Controllers\ReportController::class, 'shipmentReport'])->name('report.shipment');
         Route::get('/shipment/data', [\App\Http\Controllers\ReportController::class, 'shipmentReportData'])->name('report.shipment.data');
         Route::get('/shipment/download', [\App\Http\Controllers\ReportController::class, 'shipmentReportDownload'])->name('report.shipment.download');
-        Route::get('/container-storage', function () { return view('report.container-storage'); });
+        Route::get('/container-storage', [\App\Http\Controllers\ReportController::class, 'containerStorage']);
+        Route::get('/container-storage/print', [\App\Http\Controllers\ReportController::class, 'containerStoragePrint']);
 
         Route::get('/{page?}', function ($page = 'advanced') {
             return view('generic.index', ['title' => 'Report: ' . ucfirst($page), 'api_endpoint' => '/api/shipments']);

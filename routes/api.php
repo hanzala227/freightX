@@ -87,3 +87,38 @@ Route::apiResource('schedules', ScheduleController::class);
 Route::apiResource('quotations', QuotationController::class)->only(['index', 'show']);
 Route::get('/work-orders', [App\Http\Controllers\WorkOrderController::class, 'apiIndex']);
 
+
+// Dropdown Options API
+Route::prefix('dropdown-options')->group(function () {
+    Route::get('/test', function() {
+        return response()->json(['status' => 'ok', 'message' => 'API is working']);
+    });
+    Route::get('/agents', [App\Http\Controllers\Api\DropdownOptionsController::class, 'agents']);
+    Route::get('/ports', [App\Http\Controllers\Api\DropdownOptionsController::class, 'ports']);
+    Route::get('/offices', [App\Http\Controllers\Api\DropdownOptionsController::class, 'offices']);
+    Route::get('/users', [App\Http\Controllers\Api\DropdownOptionsController::class, 'users']);
+    Route::get('/locations', [App\Http\Controllers\Api\DropdownOptionsController::class, 'locations']);
+    Route::get('/package-units', [App\Http\Controllers\Api\DropdownOptionsController::class, 'packageUnits']);
+    Route::get('/container-types', [App\Http\Controllers\Api\DropdownOptionsController::class, 'containerTypes']);
+    Route::get('/warehouses', [App\Http\Controllers\Api\DropdownOptionsController::class, 'warehouses']);
+    Route::get('/currencies', [App\Http\Controllers\Api\DropdownOptionsController::class, 'currencies']);
+    Route::get('/quotations', [App\Http\Controllers\Api\DropdownOptionsController::class, 'quotations']);
+    Route::get('/truckers', [App\Http\Controllers\Api\DropdownOptionsController::class, 'truckers']);
+    Route::get('/vendors', [App\Http\Controllers\Api\DropdownOptionsController::class, 'vendors']);
+});
+
+// Truck Shipment Containers & Commodities API
+Route::prefix('truck-shipments/{id}')->group(function () {
+    Route::get('/containers', [TruckShipmentController::class, 'getContainers']);
+    Route::post('/containers', [TruckShipmentController::class, 'storeContainer']);
+    Route::put('/containers/{container}', [TruckShipmentController::class, 'updateContainer']);
+    Route::delete('/containers/{container}', [TruckShipmentController::class, 'deleteContainer']);
+    
+    Route::get('/commodities', [TruckShipmentController::class, 'getCommodities']);
+    Route::post('/commodities', [TruckShipmentController::class, 'storeCommodity']);
+    Route::put('/commodities/{commodity}', [TruckShipmentController::class, 'updateCommodity']);
+    Route::delete('/commodities/{commodity}', [TruckShipmentController::class, 'deleteCommodity']);
+    
+    Route::post('/link-warehouse-receipts', [TruckShipmentController::class, 'linkWarehouseReceipts']);
+    Route::post('/create-and-link-receipt', [TruckShipmentController::class, 'createAndLinkReceipt']);
+});

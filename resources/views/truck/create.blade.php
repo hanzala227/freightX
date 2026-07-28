@@ -192,17 +192,32 @@
                         <div class="form-grid-4" style="grid-template-columns: repeat(3, 1fr);">
                             <div class="main-grid">
                                 <div class="form-group-gf"><label class="form-label-gf">Customer</label><div class="form-input-container">
-                                    <x-inline-select name="customer" :options="$agents" module="trade-partner" type="customer" x-model="filters.customer" class="form-control-gf" />
+                                    <select name="customer" x-model="filters.customer" class="form-control-gf">
+                                        <option value="">Select...</option>
+                                        <template x-for="agent in agents" :key="agent.id">
+                                            <option :value="agent.id" x-text="agent.company_name || agent.name"></option>
+                                        </template>
+                                    </select>
                                 </div></div>
                                 <div class="form-group-gf"><label class="form-label-gf">Port of Loading</label><div class="form-input-container">
-                                    <x-inline-select name="pol" :options="$ports" module="port" x-model="filters.pol" class="form-control-gf" />
+                                    <select name="pol" x-model="filters.pol" class="form-control-gf">
+                                        <option value="">Select...</option>
+                                        <template x-for="port in ports" :key="port.id">
+                                            <option :value="port.id" x-text="port.name"></option>
+                                        </template>
+                                    </select>
                                 </div></div>
                                 <div class="form-group-gf"><label class="form-label-gf">Quote No.</label><div class="form-input-container"><input type="text" class="form-control-gf" x-model="filters.quote_no"></div></div>
                             </div>
                             <div class="main-grid">
                                 <div class="form-group-gf"><label class="form-label-gf">Valid Date</label><div class="form-input-container"><input type="text" class="form-control-gf datepicker" x-model="filters.valid_date" placeholder="Start Date - End Date"></div></div>
                                 <div class="form-group-gf"><label class="form-label-gf">Port of Discharge</label><div class="form-input-container">
-                                    <x-inline-select name="pod" :options="$ports" module="port" x-model="filters.pod" class="form-control-gf" />
+                                    <select name="pod" x-model="filters.pod" class="form-control-gf">
+                                        <option value="">Select...</option>
+                                        <template x-for="port in ports" :key="port.id">
+                                            <option :value="port.id" x-text="port.name"></option>
+                                        </template>
+                                    </select>
                                 </div></div>
                                 <div class="form-group-gf"><label class="form-label-gf">Status</label><div class="form-input-container">
                                     <select class="form-control-gf" x-model="filters.status">
@@ -219,17 +234,17 @@
                                 <div class="form-group-gf"><label class="form-label-gf">Sales</label><div class="form-input-container">
                                     <select class="form-control-gf" x-model="filters.sales">
                                         <option value="">Select...</option>
-                                        @foreach($users as $user)
-                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                        @endforeach
+                                        <template x-for="user in users" :key="user.id">
+                                            <option :value="user.id" x-text="user.name"></option>
+                                        </template>
                                     </select>
                                 </div></div>
                                 <div class="form-group-gf"><label class="form-label-gf">OP</label><div class="form-input-container">
                                     <select class="form-control-gf" x-model="filters.op">
                                         <option value="">Select...</option>
-                                        @foreach($users as $user)
-                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                        @endforeach
+                                        <template x-for="user in users" :key="user.id">
+                                            <option :value="user.id" x-text="user.name"></option>
+                                        </template>
                                     </select>
                                 </div></div>
                             </div>
@@ -838,9 +853,16 @@
                         <svg width="12" height="16" viewBox="0 0 12 16" fill="none" style="margin-right: 4px;">
                             <path d="M0 0H12V11L6 16L0 11V0Z" fill="#fff"/>
                         </svg>
-                        MB/L Information
+                        MB/L INFORMATION
                     </div>
-                    <button type="button" class="btn-default-gf"><i class="fa fa-cogs"></i> Tools <i class="fa fa-angle-down"></i></button>
+                    <div style="display: flex; gap: 5px;">
+                        <button type="button" class="btn-default-gf" @click="saveAllContainers()" :disabled="!saved">
+                            <i class="fa fa-save"></i> SAVE ALL CONTAINERS
+                        </button>
+                        <button type="button" class="btn-default-gf" @click="saveAllCommodities()" :disabled="!saved">
+                            <i class="fa fa-save"></i> SAVE ALL COMMODITIES
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="portlet-body">
@@ -899,38 +921,47 @@
                                 <th>Pick Up</th>
                                 <th>Empty Return</th>
                                 <th x-show="po_mapping === 'C'">P.O. No.</th>
+                                <th style="width: 100px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <template x-if="containers.length === 0">
                                 <tr>
-                                    <td :colspan="po_mapping === 'C' ? 15 : 14" style="text-align: center; color: #888; height: 35px;">
+                                    <td :colspan="po_mapping === 'C' ? 16 : 15" style="text-align: center; color: #888; height: 35px;">
                                         No Data Available. Please click <span style="color: #32c5d2; cursor:pointer;" @click="addContainer()">here</span> to add a new row.
                                     </td>
                                 </tr>
                             </template>
-                            <template x-for="(cont, idx) in containers" :key="idx">
-                                <tr>
+                            <template x-for="(cont, idx) in containers" :key="cont.id || idx">
+                                <tr :style="cont._unsaved ? 'background: #fffbeb;' : ''">
                                     <td style="text-align:center;"><input type="checkbox" :value="idx" x-model="selectedContainers"></td>
                                     <td style="text-align:center;" x-text="idx + 1"></td>
-                                    <td><input type="text" class="form-control-gf" x-model="cont.pier_pass" style="width:70px;"></td>
-                                    <td><input type="text" class="form-control-gf" x-model="cont.container_no" placeholder="Container No." style="width:120px;"></td>
+                                    <td><input type="text" class="form-control-gf" x-model="cont.pier_pass" style="width:70px;" @input="cont._unsaved = true"></td>
+                                    <td><input type="text" class="form-control-gf" x-model="cont.container_no" placeholder="Container No." style="width:120px;" @input="cont._unsaved = true"></td>
                                     <td>
-                                        <select class="form-control-gf" x-model="cont.container_type_id" style="width:80px;">
+                                        <select class="form-control-gf" x-model="cont.container_type_id" style="width:80px;" @change="cont._unsaved = true">
                                             <option value="">Select...</option>
                                             @foreach($containerTypes as $ct)<option value="{{ $ct->id }}">{{ $ct->code }}</option>@endforeach
                                         </select>
                                     </td>
-                                    <td><input type="text" class="form-control-gf" x-model="cont.seal_no" style="width:80px;"></td>
-                                    <td><input type="text" class="form-control-gf" x-model="cont.pickup_no" style="width:80px;"></td>
-                                    <td><input type="number" step="any" class="form-control-gf" x-model="cont.pkg" style="width:60px;text-align:right;"></td>
-                                    <td><input type="number" step="any" class="form-control-gf" x-model="cont.weight" style="width:70px;text-align:right;"></td>
-                                    <td><input type="number" step="any" class="form-control-gf" x-model="cont.measurement" style="width:70px;text-align:right;"></td>
-                                    <td><input type="date" class="form-control-gf" x-model="cont.lfd" style="width:90px;"></td>
-                                    <td><input type="date" class="form-control-gf" x-model="cont.appointment" style="width:90px;"></td>
-                                    <td><input type="date" class="form-control-gf" x-model="cont.pickup_date" style="width:90px;"></td>
-                                    <td><input type="date" class="form-control-gf" x-model="cont.empty_return_date" style="width:90px;"></td>
-                                    <td x-show="po_mapping === 'C'"><input type="text" class="form-control-gf" x-model="cont.po_no" style="width:100px;"></td>
+                                    <td><input type="text" class="form-control-gf" x-model="cont.seal_no" style="width:80px;" @input="cont._unsaved = true"></td>
+                                    <td><input type="text" class="form-control-gf" x-model="cont.pickup_no" style="width:80px;" @input="cont._unsaved = true"></td>
+                                    <td><input type="number" step="any" class="form-control-gf" x-model="cont.pkg" style="width:60px;text-align:right;" @input="cont._unsaved = true"></td>
+                                    <td><input type="number" step="any" class="form-control-gf" x-model="cont.weight" style="width:70px;text-align:right;" @input="cont._unsaved = true"></td>
+                                    <td><input type="number" step="any" class="form-control-gf" x-model="cont.measurement" style="width:70px;text-align:right;" @input="cont._unsaved = true"></td>
+                                    <td><input type="date" class="form-control-gf" x-model="cont.lfd" style="width:90px;" @change="cont._unsaved = true"></td>
+                                    <td><input type="date" class="form-control-gf" x-model="cont.appointment" style="width:90px;" @change="cont._unsaved = true"></td>
+                                    <td><input type="date" class="form-control-gf" x-model="cont.pickup_date" style="width:90px;" @change="cont._unsaved = true"></td>
+                                    <td><input type="date" class="form-control-gf" x-model="cont.empty_return_date" style="width:90px;" @change="cont._unsaved = true"></td>
+                                    <td x-show="po_mapping === 'C'"><input type="text" class="form-control-gf" x-model="cont.po_no" style="width:100px;" @input="cont._unsaved = true"></td>
+                                    <td style="text-align: center;">
+                                        <button type="button" class="btn-default-gf dark" style="padding:2px 6px;font-size:9px;" @click="saveContainer(idx)" :disabled="!cont._unsaved" title="Save">
+                                            <i class="fa fa-save"></i>
+                                        </button>
+                                        <button type="button" class="btn-default-gf dark" style="padding:2px 6px;font-size:9px;color:#d05454;" @click="deleteContainer(idx)" title="Delete">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                             </template>
                             <tr style="background: #f9f9f9;">
@@ -960,8 +991,8 @@
                                 <td style="text-align: center;"><input type="radio" name="total_source" value="receiving" x-model="totalSource" disabled></td>
                                 <td colspan="2" style="text-align: left;">Receiving Total</td>
                                 <td :colspan="po_mapping === 'C' ? 8 : 7" style="text-align: left;">
-                                    <button type="button" class="btn-gf-inline" style="background: #3b73af;"><i class="fa fa-external-link-square"></i> Load from Warehouse</button>
-                                    <button type="button" class="btn-gf-inline" style="background: #3b73af;"><i class="fa fa-external-link-square"></i> Create Receipt and Link</button>
+                                    <button type="button" class="btn-gf-inline" style="background: #3b73af;" @click="openWarehouseLoadModal()"><i class="fa fa-external-link-square"></i> Load from Warehouse</button>
+                                    <button type="button" class="btn-gf-inline" style="background: #3b73af;" @click="openCreateReceiptModal()"><i class="fa fa-external-link-square"></i> Create Receipt and Link</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -984,30 +1015,39 @@
                                 <th>HTS Code</th>
                                 <th>Container</th>
                                 <th x-show="po_mapping === 'I'">P.O. No.</th>
+                                <th style="width: 100px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <template x-if="commodities.length === 0">
                                 <tr>
-                                    <td :colspan="po_mapping === 'I' ? 5 : 4" style="text-align: center; color: #888; height: 35px;">
+                                    <td :colspan="po_mapping === 'I' ? 6 : 5" style="text-align: center; color: #888; height: 35px;">
                                         No Data Available. Please click <span style="color: #32c5d2; cursor:pointer;" @click="addCommodity()">here</span> to add a new row.
                                     </td>
                                 </tr>
                             </template>
-                            <template x-for="(comm, idx) in commodities" :key="idx">
-                                <tr>
+                            <template x-for="(comm, idx) in commodities" :key="comm.id || idx">
+                                <tr :style="comm._unsaved ? 'background: #fffbeb;' : ''">
                                     <td style="text-align:center;"><input type="checkbox" :value="idx" x-model="selectedCommodities"></td>
-                                    <td><input type="text" class="form-control-gf" x-model="comm.description" placeholder="Commodity description"></td>
-                                    <td><input type="text" class="form-control-gf" x-model="comm.hts_code" placeholder="HTS Code" style="width:120px;"></td>
+                                    <td><input type="text" class="form-control-gf" x-model="comm.description" placeholder="Commodity description" @input="comm._unsaved = true"></td>
+                                    <td><input type="text" class="form-control-gf" x-model="comm.hts_code" placeholder="HTS Code" style="width:120px;" @input="comm._unsaved = true"></td>
                                     <td>
-                                        <select class="form-control-gf" x-model="comm.container_idx" style="width:120px;">
+                                        <select class="form-control-gf" x-model="comm.container_idx" style="width:120px;" @change="comm._unsaved = true">
                                             <option value="">Select...</option>
                                             <template x-for="(c, ci) in containers" :key="ci">
                                                 <option :value="ci" x-text="c.container_no || 'Container ' + (ci+1)"></option>
                                             </template>
                                         </select>
                                     </td>
-                                    <td x-show="po_mapping === 'I'"><input type="text" class="form-control-gf" x-model="comm.po_no" style="width:100px;"></td>
+                                    <td x-show="po_mapping === 'I'"><input type="text" class="form-control-gf" x-model="comm.po_no" style="width:100px;" @input="comm._unsaved = true"></td>
+                                    <td style="text-align: center;">
+                                        <button type="button" class="btn-default-gf dark" style="padding:2px 6px;font-size:9px;" @click="saveCommodity(idx)" :disabled="!comm._unsaved" title="Save">
+                                            <i class="fa fa-save"></i>
+                                        </button>
+                                        <button type="button" class="btn-default-gf dark" style="padding:2px 6px;font-size:9px;color:#d05454;" @click="deleteCommodity(idx)" title="Delete">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                             </template>
                         </tbody>
@@ -1049,6 +1089,230 @@
                         </div>
                     </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== WAREHOUSE LOAD MODAL ==================== -->
+        <div x-show="showWarehouseLoadModal" class="modal-overlay" style="display:none;" x-cloak @click.self="closeWarehouseLoadModal()">
+            <div class="modal-container" style="max-width: 1100px;">
+                <div class="modal-header">
+                    <span><i class="fa fa-warehouse text-blue-500"></i> Load from Warehouse</span>
+                    <i class="fa fa-times cursor-pointer text-gray-500 hover:text-gray-700" @click="closeWarehouseLoadModal()"></i>
+                </div>
+
+                <div class="modal-body">
+                    <!-- Search Filters -->
+                    <div class="form-grid-4" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 15px;">
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Warehouse</label>
+                            <div class="form-input-container">
+                                <select class="form-control-gf" x-model="warehouseFilters.warehouse_id">
+                                    <option value="">All Warehouses</option>
+                                    @foreach($warehouses ?? [] as $warehouse)
+                                        <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Receipt No.</label>
+                            <div class="form-input-container">
+                                <input type="text" class="form-control-gf" x-model="warehouseFilters.receipt_no" placeholder="Search...">
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Customer</label>
+                            <div class="form-input-container">
+                                <select class="form-control-gf" x-model="warehouseFilters.customer_id">
+                                    <option value="">All Customers</option>
+                                    @foreach($agents ?? [] as $agent)
+                                        @if($agent->is_customer)
+                                            <option value="{{ $agent->id }}">{{ $agent->company_name }}</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Status</label>
+                            <div class="form-input-container">
+                                <select class="form-control-gf" x-model="warehouseFilters.status">
+                                    <option value="">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="received">Received</option>
+                                    <option value="linked">Linked</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 15px;">
+                        <button type="button" class="btn-default-gf" @click="clearWarehouseFilters()">Clear</button>
+                        <button type="button" class="btn-gofreight" @click="searchWarehouseReceipts()"><i class="fa fa-search"></i> Search</button>
+                    </div>
+
+                    <!-- Warehouse Receipts Table -->
+                    <div class="table-responsive">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px; text-align: center;"><input type="checkbox" @change="toggleAllWarehouseReceipts($event.target.checked)"></th>
+                                    <th>Receipt No.</th>
+                                    <th>Warehouse</th>
+                                    <th>Customer</th>
+                                    <th>Receive Date</th>
+                                    <th style="text-align: right;">PKG</th>
+                                    <th style="text-align: right;">Weight (KG)</th>
+                                    <th style="text-align: right;">CBM</th>
+                                    <th>Status</th>
+                                    <th>Commodity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-if="warehouseReceipts.length === 0">
+                                    <tr>
+                                        <td colspan="10" style="text-align: center; color: #94a3b8; font-size: 11px; padding: 20px;">
+                                            No warehouse receipts found. Use the search filters above.
+                                        </td>
+                                    </tr>
+                                </template>
+                                <template x-for="receipt in warehouseReceipts" :key="receipt.id">
+                                    <tr style="cursor: pointer;" :class="selectedWarehouseReceipts.includes(receipt.id) ? 'bg-blue-50' : ''" @click="toggleWarehouseReceipt(receipt.id)">
+                                        <td style="text-align: center;" @click.stop>
+                                            <input type="checkbox" :checked="selectedWarehouseReceipts.includes(receipt.id)" @change="toggleWarehouseReceipt(receipt.id)">
+                                        </td>
+                                        <td x-text="receipt.receipt_no"></td>
+                                        <td x-text="receipt.warehouse_name"></td>
+                                        <td x-text="receipt.customer_name"></td>
+                                        <td x-text="receipt.receive_date"></td>
+                                        <td style="text-align: right;" x-text="receipt.pkg"></td>
+                                        <td style="text-align: right;" x-text="receipt.weight"></td>
+                                        <td style="text-align: right;" x-text="receipt.cbm"></td>
+                                        <td>
+                                            <span :style="'padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 600; background: ' + (receipt.status === 'received' ? '#d4edda' : receipt.status === 'linked' ? '#cce5ff' : '#fff3cd') + '; color: ' + (receipt.status === 'received' ? '#155724' : receipt.status === 'linked' ? '#004085' : '#856404')" x-text="receipt.status.toUpperCase()"></span>
+                                        </td>
+                                        <td x-text="receipt.commodity" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 10px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 10px;">
+                        <strong>Selected:</strong> <span x-text="selectedWarehouseReceipts.length"></span> receipt(s)
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-default-gf" @click="closeWarehouseLoadModal()">Cancel</button>
+                    <button type="button" class="btn-gofreight" @click="loadSelectedWarehouseReceipts()" :disabled="selectedWarehouseReceipts.length === 0">
+                        <i class="fa fa-check"></i> Load Selected (<span x-text="selectedWarehouseReceipts.length"></span>)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== CREATE RECEIPT MODAL ==================== -->
+        <div x-show="showCreateReceiptModal" class="modal-overlay" style="display:none;" x-cloak @click.self="closeCreateReceiptModal()">
+            <div class="modal-container" style="max-width: 800px;">
+                <div class="modal-header">
+                    <span><i class="fa fa-plus-circle text-blue-500"></i> Create Warehouse Receipt and Link</span>
+                    <i class="fa fa-times cursor-pointer text-gray-500 hover:text-gray-700" @click="closeCreateReceiptModal()"></i>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-grid-4" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="form-group-gf">
+                            <label class="form-label-gf required">Warehouse</label>
+                            <div class="form-input-container">
+                                <select class="form-control-gf" x-model="receiptForm.warehouse_id" required>
+                                    <option value="">Select Warehouse...</option>
+                                    @foreach($warehouses ?? [] as $warehouse)
+                                        <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf required">Receipt No.</label>
+                            <div class="form-input-container">
+                                <input type="text" class="form-control-gf" x-model="receiptForm.receipt_no" placeholder="Auto-generated" required>
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Customer</label>
+                            <div class="form-input-container">
+                                <select class="form-control-gf" x-model="receiptForm.customer_id">
+                                    <option value="">Select Customer...</option>
+                                    @foreach($agents ?? [] as $agent)
+                                        @if($agent->is_customer)
+                                            <option value="{{ $agent->id }}">{{ $agent->company_name }}</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf required">Receive Date</label>
+                            <div class="form-input-container">
+                                <input type="date" class="form-control-gf" x-model="receiptForm.receive_date" required>
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">PKG</label>
+                            <div class="form-input-container">
+                                <input type="number" step="any" class="form-control-gf" x-model="receiptForm.pkg" style="text-align: right;">
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Weight (KG)</label>
+                            <div class="form-input-container">
+                                <input type="number" step="any" class="form-control-gf" x-model="receiptForm.weight" style="text-align: right;">
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">CBM</label>
+                            <div class="form-input-container">
+                                <input type="number" step="any" class="form-control-gf" x-model="receiptForm.cbm" style="text-align: right;">
+                            </div>
+                        </div>
+                        <div class="form-group-gf">
+                            <label class="form-label-gf">Status</label>
+                            <div class="form-input-container">
+                                <select class="form-control-gf" x-model="receiptForm.status">
+                                    <option value="pending">Pending</option>
+                                    <option value="received">Received</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-gf" style="margin-top: 10px;">
+                        <label class="form-label-gf">Commodity</label>
+                        <div class="form-input-container" style="flex: 1;">
+                            <textarea class="form-control-gf" x-model="receiptForm.commodity" rows="3" placeholder="Enter commodity description..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-group-gf" style="margin-top: 10px;">
+                        <label class="form-label-gf">Remark</label>
+                        <div class="form-input-container" style="flex: 1;">
+                            <textarea class="form-control-gf" x-model="receiptForm.remark" rows="2" placeholder="Optional remarks..."></textarea>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 10px; background: #e8f4fd; border: 1px solid #bee5eb; border-radius: 4px; font-size: 10px;">
+                        <i class="fa fa-info-circle" style="color: #0c5460;"></i> 
+                        <strong>Note:</strong> This receipt will be automatically linked to this truck shipment after creation.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-default-gf" @click="closeCreateReceiptModal()">Cancel</button>
+                    <button type="button" class="btn-gofreight" @click="createAndLinkReceipt()">
+                        <i class="fa fa-save"></i> Create and Link
+                    </button>
                 </div>
             </div>
         </div>
@@ -1606,8 +1870,45 @@
                 showMore: false,
                 loadFromQuotation: false,
                 
+                // Warehouse Modal States
+                showWarehouseLoadModal: false,
+                showCreateReceiptModal: false,
+                warehouseReceipts: [],
+                selectedWarehouseReceipts: [],
+                warehouseFilters: {
+                    warehouse_id: '',
+                    receipt_no: '',
+                    customer_id: '',
+                    status: ''
+                },
+                receiptForm: {
+                    warehouse_id: '',
+                    receipt_no: '',
+                    customer_id: '',
+                    receive_date: new Date().toISOString().split('T')[0],
+                    pkg: 0,
+                    weight: 0,
+                    cbm: 0,
+                    status: 'received',
+                    commodity: '',
+                    remark: ''
+                },
+                
                 // ===== Users data for dynamic rendering =====
                 users: @json($users),
+                
+                // ===== Dropdown Options (Dynamic) =====
+                agents: [],           // Trade partners (customers, shippers, consignees, etc.)
+                ports: [],            // Ports
+                offices: [],          // Offices
+                quotations: [],       // Quotations
+                truckers: [],         // Truckers
+                locations: [],        // Locations
+                packageUnits: [],     // Package units
+                containerTypes: [],   // Container types
+                warehouses: [],       // Warehouses
+                currencies: [],       // Currencies
+                vendors: [],          // Vendors for charges
                 
                 // ===== Quote Modal =====
                 showQuoteModal: new URLSearchParams(window.location.search).get('load_from_quotation') === 'true' || {{ isset($page) && $page === 'create-quote' ? 'true' : 'false' }},
@@ -1863,10 +2164,22 @@
                 },
                 addContainer() {
                     this.containers.push({
-                        container_no: '', tp_sz: '', container_type_id: '', seal_no: '', pickup_no: '',
-                        pkg: 0, weight: 0, measurement: 0,
-                        lfd: '', appointment: '', pickup_date: '', empty_return_date: '',
-                        pier_pass: '', po_no: ''
+                        id: null,
+                        container_no: '', 
+                        tp_sz: '', 
+                        container_type_id: '', 
+                        seal_no: '', 
+                        pickup_no: '',
+                        pkg: 0, 
+                        weight: 0, 
+                        measurement: 0,
+                        lfd: '', 
+                        appointment: '', 
+                        pickup_date: '', 
+                        empty_return_date: '',
+                        pier_pass: '', 
+                        po_no: '',
+                        _unsaved: true
                     });
                 },
                 addContainers(n) {
@@ -1876,16 +2189,173 @@
                     if (this.selectedContainers.length > 0) {
                         this.selectedContainers.forEach(idx => {
                             const original = this.containers[idx];
-                            if (original) this.containers.push({ ...original });
+                            if (original) {
+                                const duplicate = { ...original, id: null, _unsaved: true };
+                                this.containers.push(duplicate);
+                            }
                         });
+                        if (typeof showToast === 'function') {
+                            showToast('success', `Duplicated ${this.selectedContainers.length} container(s)`);
+                        }
                     } else if (this.containers.length > 0) {
-                        this.containers.push({ ...this.containers[this.containers.length - 1] });
+                        const original = this.containers[this.containers.length - 1];
+                        const duplicate = { ...original, id: null, _unsaved: true };
+                        this.containers.push(duplicate);
+                        if (typeof showToast === 'function') {
+                            showToast('success', 'Container duplicated');
+                        }
                     }
                 },
+                async saveContainer(idx) {
+                    const container = this.containers[idx];
+                    if (!container) return;
+                    
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    try {
+                        const payload = { ...container };
+                        delete payload._unsaved;
+                        payload.truck_shipment_id = shipmentId;
+                        
+                        let response;
+                        if (container.id) {
+                            // Update existing
+                            response = await fetch(`/api/truck-shipments/${shipmentId}/containers/${container.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken || '',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                        } else {
+                            // Create new
+                            response = await fetch(`/api/truck-shipments/${shipmentId}/containers`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken || '',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                        }
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.container) {
+                                Object.assign(container, data.container);
+                                container._unsaved = false;
+                            }
+                            if (typeof showToast === 'function') {
+                                showToast('success', 'Container saved successfully');
+                            }
+                        } else {
+                            const error = await response.json();
+                            if (typeof showToast === 'function') {
+                                showToast('error', error.message || 'Failed to save container');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Container save failed:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to save container');
+                        }
+                    }
+                    @else
+                    // Mark as saved locally
+                    container._unsaved = false;
+                    if (typeof showToast === 'function') {
+                        showToast('warning', 'Please save the shipment first, then save containers');
+                    }
+                    @endif
+                },
+                async deleteContainer(idx) {
+                    if (!confirm('Delete this container?')) return;
+                    
+                    const container = this.containers[idx];
+                    
+                    @if(isset($truckShipment))
+                    if (container.id) {
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                        const shipmentId = {{ $truckShipment->id }};
+                        
+                        try {
+                            const response = await fetch(`/api/truck-shipments/${shipmentId}/containers/${container.id}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrfToken || '',
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                this.containers.splice(idx, 1);
+                                if (typeof showToast === 'function') {
+                                    showToast('success', 'Container deleted successfully');
+                                }
+                            } else {
+                                if (typeof showToast === 'function') {
+                                    showToast('error', 'Failed to delete container');
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Container delete failed:', e);
+                            if (typeof showToast === 'function') {
+                                showToast('error', 'Failed to delete container');
+                            }
+                        }
+                    } else {
+                        this.containers.splice(idx, 1);
+                    }
+                    @else
+                    this.containers.splice(idx, 1);
+                    @endif
+                },
                 deleteSelectedContainers() {
+                    if (this.selectedContainers.length === 0) return;
+                    if (!confirm(`Delete ${this.selectedContainers.length} selected container(s)?`)) return;
+                    
                     const sorted = [...this.selectedContainers].sort((a,b) => b - a);
-                    sorted.forEach(idx => { this.containers.splice(idx, 1); });
+                    sorted.forEach(idx => { 
+                        this.deleteContainer(idx);
+                    });
                     this.selectedContainers = [];
+                },
+                async saveAllContainers() {
+                    @if(isset($truckShipment))
+                    let savedCount = 0;
+                    let errorCount = 0;
+                    
+                    for (let i = 0; i < this.containers.length; i++) {
+                        if (this.containers[i]._unsaved) {
+                            try {
+                                await this.saveContainer(i);
+                                savedCount++;
+                            } catch (e) {
+                                errorCount++;
+                            }
+                        }
+                    }
+                    
+                    if (savedCount > 0) {
+                        if (typeof showToast === 'function') {
+                            showToast('success', `Saved ${savedCount} container(s)`);
+                        }
+                    }
+                    if (errorCount > 0) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', `Failed to save ${errorCount} container(s)`);
+                        }
+                    }
+                    @else
+                    if (typeof showToast === 'function') {
+                        showToast('warning', 'Please save the shipment first');
+                    }
+                    @endif
                 },
                 toggleAllContainers(checked) {
                     if (checked) {
@@ -1907,12 +2377,171 @@
                 commodities: [],
                 selectedCommodities: [],
                 addCommodity() {
-                    this.commodities.push({ description: '', hts_code: '', container_idx: '', po_no: '' });
+                    this.commodities.push({ 
+                        id: null,
+                        description: '', 
+                        hts_code: '', 
+                        container_idx: '', 
+                        po_no: '',
+                        _unsaved: true
+                    });
+                },
+                async saveCommodity(idx) {
+                    const commodity = this.commodities[idx];
+                    if (!commodity) return;
+                    
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    try {
+                        const payload = { ...commodity };
+                        delete payload._unsaved;
+                        payload.truck_shipment_id = shipmentId;
+                        
+                        // Map container_idx to container_id
+                        if (payload.container_idx !== '' && this.containers[payload.container_idx]) {
+                            payload.container_id = this.containers[payload.container_idx].id;
+                        }
+                        delete payload.container_idx;
+                        
+                        let response;
+                        if (commodity.id) {
+                            // Update existing
+                            response = await fetch(`/api/truck-shipments/${shipmentId}/commodities/${commodity.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken || '',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                        } else {
+                            // Create new
+                            response = await fetch(`/api/truck-shipments/${shipmentId}/commodities`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken || '',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                        }
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.commodity) {
+                                Object.assign(commodity, data.commodity);
+                                commodity._unsaved = false;
+                            }
+                            if (typeof showToast === 'function') {
+                                showToast('success', 'Commodity saved successfully');
+                            }
+                        } else {
+                            const error = await response.json();
+                            if (typeof showToast === 'function') {
+                                showToast('error', error.message || 'Failed to save commodity');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Commodity save failed:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to save commodity');
+                        }
+                    }
+                    @else
+                    // Mark as saved locally
+                    commodity._unsaved = false;
+                    if (typeof showToast === 'function') {
+                        showToast('warning', 'Please save the shipment first, then save commodities');
+                    }
+                    @endif
+                },
+                async deleteCommodity(idx) {
+                    if (!confirm('Delete this commodity?')) return;
+                    
+                    const commodity = this.commodities[idx];
+                    
+                    @if(isset($truckShipment))
+                    if (commodity.id) {
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                        const shipmentId = {{ $truckShipment->id }};
+                        
+                        try {
+                            const response = await fetch(`/api/truck-shipments/${shipmentId}/commodities/${commodity.id}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrfToken || '',
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                this.commodities.splice(idx, 1);
+                                if (typeof showToast === 'function') {
+                                    showToast('success', 'Commodity deleted successfully');
+                                }
+                            } else {
+                                if (typeof showToast === 'function') {
+                                    showToast('error', 'Failed to delete commodity');
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Commodity delete failed:', e);
+                            if (typeof showToast === 'function') {
+                                showToast('error', 'Failed to delete commodity');
+                            }
+                        }
+                    } else {
+                        this.commodities.splice(idx, 1);
+                    }
+                    @else
+                    this.commodities.splice(idx, 1);
+                    @endif
                 },
                 deleteSelectedCommodities() {
+                    if (this.selectedCommodities.length === 0) return;
+                    if (!confirm(`Delete ${this.selectedCommodities.length} selected commodity(s)?`)) return;
+                    
                     const sorted = [...this.selectedCommodities].sort((a,b) => b - a);
-                    sorted.forEach(idx => { this.commodities.splice(idx, 1); });
+                    sorted.forEach(idx => { 
+                        this.deleteCommodity(idx);
+                    });
                     this.selectedCommodities = [];
+                },
+                async saveAllCommodities() {
+                    @if(isset($truckShipment))
+                    let savedCount = 0;
+                    let errorCount = 0;
+                    
+                    for (let i = 0; i < this.commodities.length; i++) {
+                        if (this.commodities[i]._unsaved) {
+                            try {
+                                await this.saveCommodity(i);
+                                savedCount++;
+                            } catch (e) {
+                                errorCount++;
+                            }
+                        }
+                    }
+                    
+                    if (savedCount > 0) {
+                        if (typeof showToast === 'function') {
+                            showToast('success', `Saved ${savedCount} commodity(s)`);
+                        }
+                    }
+                    if (errorCount > 0) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', `Failed to save ${errorCount} commodity(s)`);
+                        }
+                    }
+                    @else
+                    if (typeof showToast === 'function') {
+                        showToast('warning', 'Please save the shipment first');
+                    }
+                    @endif
                 },
                 toggleAllCommodities(checked) {
                     if (checked) {
@@ -1923,6 +2552,219 @@
                 },
                 copyCommoditiesToDescription() {
                     this.form.description = this.commodities.map(c => c.description).filter(Boolean).join(', ');
+                },
+                
+                // ===== Warehouse Load Modal Methods =====
+                openWarehouseLoadModal() {
+                    this.showWarehouseLoadModal = true;
+                    this.searchWarehouseReceipts();
+                },
+                closeWarehouseLoadModal() {
+                    this.showWarehouseLoadModal = false;
+                    this.selectedWarehouseReceipts = [];
+                },
+                clearWarehouseFilters() {
+                    this.warehouseFilters = {
+                        warehouse_id: '',
+                        receipt_no: '',
+                        customer_id: '',
+                        status: ''
+                    };
+                },
+                async searchWarehouseReceipts() {
+                    try {
+                        const params = new URLSearchParams();
+                        if (this.warehouseFilters.warehouse_id) params.append('warehouse_id', this.warehouseFilters.warehouse_id);
+                        if (this.warehouseFilters.receipt_no) params.append('receipt_no', this.warehouseFilters.receipt_no);
+                        if (this.warehouseFilters.customer_id) params.append('customer_id', this.warehouseFilters.customer_id);
+                        if (this.warehouseFilters.status) params.append('status', this.warehouseFilters.status);
+                        
+                        // Only show unlinked or available receipts
+                        params.append('available', 'true');
+                        
+                        const response = await fetch(`/api/warehouse-receipts?${params.toString()}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.warehouseReceipts = Array.isArray(data) ? data : (data.data || []);
+                        } else {
+                            this.warehouseReceipts = [];
+                        }
+                    } catch (e) {
+                        console.error('Failed to search warehouse receipts:', e);
+                        this.warehouseReceipts = [];
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to load warehouse receipts');
+                        }
+                    }
+                },
+                toggleWarehouseReceipt(id) {
+                    const index = this.selectedWarehouseReceipts.indexOf(id);
+                    if (index >= 0) {
+                        this.selectedWarehouseReceipts.splice(index, 1);
+                    } else {
+                        this.selectedWarehouseReceipts.push(id);
+                    }
+                },
+                toggleAllWarehouseReceipts(checked) {
+                    if (checked) {
+                        this.selectedWarehouseReceipts = this.warehouseReceipts.map(r => r.id);
+                    } else {
+                        this.selectedWarehouseReceipts = [];
+                    }
+                },
+                async loadSelectedWarehouseReceipts() {
+                    if (this.selectedWarehouseReceipts.length === 0) {
+                        if (typeof showToast === 'function') {
+                            showToast('warning', 'Please select at least one receipt');
+                        }
+                        return;
+                    }
+                    
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    try {
+                        const response = await fetch(`/api/truck-shipments/${shipmentId}/link-warehouse-receipts`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken || '',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                receipt_ids: this.selectedWarehouseReceipts
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (typeof showToast === 'function') {
+                                showToast('success', `Linked ${this.selectedWarehouseReceipts.length} warehouse receipt(s) successfully`);
+                            }
+                            
+                            // Update totals if provided
+                            if (data.totals) {
+                                this.manualTotal.pkg = data.totals.pkg || 0;
+                                this.manualTotal.weight = data.totals.weight || 0;
+                                this.manualTotal.measurement = data.totals.cbm || 0;
+                                this.totalSource = 'receiving';
+                            }
+                            
+                            // Close modal
+                            this.closeWarehouseLoadModal();
+                            
+                            // Reload page to show linked receipts
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            const error = await response.json();
+                            if (typeof showToast === 'function') {
+                                showToast('error', error.message || 'Failed to link warehouse receipts');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to link warehouse receipts:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to link warehouse receipts');
+                        }
+                    }
+                    @else
+                    if (typeof showToast === 'function') {
+                        showToast('warning', 'Please save the shipment first');
+                    }
+                    @endif
+                },
+                
+                // ===== Create Receipt Modal Methods =====
+                openCreateReceiptModal() {
+                    this.showCreateReceiptModal = true;
+                    // Reset form
+                    this.receiptForm = {
+                        warehouse_id: '',
+                        receipt_no: '',
+                        customer_id: this.form.customer_id || '',
+                        receive_date: new Date().toISOString().split('T')[0],
+                        pkg: 0,
+                        weight: 0,
+                        cbm: 0,
+                        status: 'received',
+                        commodity: '',
+                        remark: ''
+                    };
+                },
+                closeCreateReceiptModal() {
+                    this.showCreateReceiptModal = false;
+                },
+                async createAndLinkReceipt() {
+                    // Validate required fields
+                    if (!this.receiptForm.warehouse_id) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Please select a warehouse');
+                        }
+                        return;
+                    }
+                    if (!this.receiptForm.receive_date) {
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Please select receive date');
+                        }
+                        return;
+                    }
+                    
+                    @if(isset($truckShipment))
+                    const shipmentId = {{ $truckShipment->id }};
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    try {
+                        const response = await fetch(`/api/truck-shipments/${shipmentId}/create-and-link-receipt`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken || '',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(this.receiptForm)
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (typeof showToast === 'function') {
+                                showToast('success', 'Warehouse receipt created and linked successfully');
+                            }
+                            
+                            // Update totals if provided
+                            if (data.totals) {
+                                this.manualTotal.pkg = data.totals.pkg || 0;
+                                this.manualTotal.weight = data.totals.weight || 0;
+                                this.manualTotal.measurement = data.totals.cbm || 0;
+                                this.totalSource = 'receiving';
+                            }
+                            
+                            // Close modal
+                            this.closeCreateReceiptModal();
+                            
+                            // Reload page to show linked receipt
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            const error = await response.json();
+                            if (typeof showToast === 'function') {
+                                showToast('error', error.message || 'Failed to create warehouse receipt');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to create warehouse receipt:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to create warehouse receipt');
+                        }
+                    }
+                    @else
+                    if (typeof showToast === 'function') {
+                        showToast('warning', 'Please save the shipment first');
+                    }
+                    @endif
                 },
                 
                 // ===== Accounting / Charges =====
@@ -2433,7 +3275,10 @@ openMemoModal() {
                 },
                 
                 init() {
-                                        // Serialize containers & memos on form submit
+                    // Load dropdown options first
+                    this.loadDropdownOptions();
+                    
+                    // Serialize containers & memos on form submit
                     this.$nextTick(() => {
                         const form = document.getElementById('truckShipmentForm');
                         if (form) {
@@ -2449,11 +3294,22 @@ openMemoModal() {
                     // Load initial data
                     @if(isset($truckShipment))
                         this.memos = @json($truckShipment->memos ?? []);
-                        this.containers = @json($truckShipment->containers ?? []);
-                        this.charges = @json($truckShipment->charges ?? []);
-                        this.documents = @json($truckShipment->documents ?? []);
                         this.statusLogs = @json($truckShipment->statusLogs ?? []);
                         this.instructionText = @json($truckShipment->instruction_text ?? '');
+                        
+                        // Load containers from database
+                        this.loadContainers();
+                        
+                        // Load commodities from database
+                        this.loadCommodities();
+                        
+                        // Load charges
+                        this.charges = @json($truckShipment->charges ?? []);
+                        
+                        // Load documents
+                        this.documents = @json($truckShipment->documents ?? []);
+                        
+                        // Load work orders
                         this.syncWorkOrders();
                         
                         // Poll for work orders
@@ -2461,7 +3317,88 @@ openMemoModal() {
                     @elseif(isset($copyShipment))
                         this.memos = @json($copyShipment->memos ?? []);
                         this.containers = @json($copyShipment->containers ?? []);
+                        this.commodities = @json($copyShipment->commodities ?? []);
                         this.charges = @json($copyShipment->charges ?? []);
+                        
+                        // Mark all as unsaved for copy mode
+                        this.containers.forEach(c => { c.id = null; c._unsaved = true; });
+                        this.commodities.forEach(c => { c.id = null; c._unsaved = true; });
+                    @endif
+                },
+                
+                // ===== Load Dropdown Options =====
+                async loadDropdownOptions() {
+                    try {
+                        const [agents, ports, offices, quotations, truckers, locations, packageUnits, containerTypes, warehouses, currencies, vendors] = await Promise.all([
+                            fetch('/api/dropdown-options/agents').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/ports').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/offices').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/quotations').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/truckers').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/locations').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/package-units').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/container-types').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/warehouses').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/currencies').then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch('/api/dropdown-options/vendors').then(r => r.json()).catch(() => ({ data: [] }))
+                        ]);
+                        
+                        this.agents = agents.data || agents || [];
+                        this.ports = ports.data || ports || [];
+                        this.offices = offices.data || offices || [];
+                        this.quotations = quotations.data || quotations || [];
+                        this.truckers = truckers.data || truckers || [];
+                        this.locations = locations.data || locations || [];
+                        this.packageUnits = packageUnits.data || packageUnits || [];
+                        this.containerTypes = containerTypes.data || containerTypes || [];
+                        this.warehouses = warehouses.data || warehouses || [];
+                        this.currencies = currencies.data || currencies || [];
+                        this.vendors = vendors.data || vendors || [];
+                    } catch (e) {
+                        console.error('Failed to load dropdown options:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Failed to load dropdown options');
+                        }
+                    }
+                },
+                
+                async loadContainers() {
+                    @if(isset($truckShipment))
+                    try {
+                        const response = await fetch('/api/truck-shipments/{{ $truckShipment->id }}/containers');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.containers = Array.isArray(data) ? data : (data.data || []);
+                            // Mark all as saved
+                            this.containers.forEach(c => { c._unsaved = false; });
+                        }
+                    } catch (e) {
+                        console.error('Failed to load containers:', e);
+                    }
+                    @endif
+                },
+                
+                async loadCommodities() {
+                    @if(isset($truckShipment))
+                    try {
+                        const response = await fetch('/api/truck-shipments/{{ $truckShipment->id }}/commodities');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.commodities = Array.isArray(data) ? data : (data.data || []);
+                            // Mark all as saved
+                            this.commodities.forEach(c => { c._unsaved = false; });
+                            
+                            // Map container_id to container_idx for display
+                            this.commodities.forEach(comm => {
+                                if (comm.container_id) {
+                                    const containerIdx = this.containers.findIndex(c => c.id === comm.container_id);
+                                    comm.container_idx = containerIdx >= 0 ? containerIdx : '';
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Failed to load commodities:', e);
+                    }
                     @endif
                 },
 

@@ -1210,4 +1210,172 @@ class ReportController extends Controller
             ],
         ]);
     }
+
+    public function containerStorage(Request $request)
+    {
+        return view('report.container-storage');
+    }
+
+    public function containerStoragePrint(Request $request)
+    {
+        $dateFrom = $request->input('date_from', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $dateTo = $request->input('date_to', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        $departments = json_decode($request->input('departments', '[]'), true);
+        $officeId = $request->input('office_id');
+        $partyType = $request->input('party_type', 'customer');
+        $partyId = $request->input('party_id');
+        $showWithoutStartDate = $request->input('show_without_start_date', false);
+
+        $containers = [];
+        $totalDays = 0;
+
+        // Get party name
+        $party = TradePartner::find($partyId);
+        $partyName = $party ? $party->name : 'N/A';
+
+        // Get office name
+        $office = $officeId ? Office::find($officeId) : null;
+        $officeName = $office ? $office->name : 'All Offices';
+
+        // Department types display
+        $departmentTypes = implode(', ', $departments);
+
+        // Query containers based on departments
+        foreach ($departments as $dept) {
+            $deptContainers = [];
+
+            switch ($dept) {
+                case 'Ocean Import':
+                    $query = DB::table('ocean_import_containers as c')
+                        ->join('ocean_imports as oi', 'c.ocean_import_id', '=', 'oi.id')
+                        ->leftJoin('container_types as ct', 'c.container_type_id', '=', 'ct.id')
+                        ->select(
+                            'c.container_no',
+                            'ct.code as tp_sz',
+                            'oi.file_no',
+                            'oi.mbl_no',
+                            DB::raw('NULL as hbl_no'),
+                            'c.storage_start_date as start_date',
+                            'c.storage_end_date as end_date'
+                        );
+
+                    if ($partyType === 'customer') {
+                        $query->where('oi.dm_customer_id', $partyId);
+                    } else {
+                        $query->where('oi.oversea_agent_id', $partyId);
+                    }
+
+                    if ($officeId) {
+                        $query->where('oi.office_id', $officeId);
+                    }
+
+                    if ($showWithoutStartDate) {
+                        $query->where(function ($q) use ($dateFrom, $dateTo) {
+                            $q->whereNull('c.storage_start_date')
+                              ->orWhereBetween('c.storage_start_date', [$dateFrom, $dateTo]);
+                        });
+                    } else {
+                        $query->whereBetween('c.storage_start_date', [$dateFrom, $dateTo]);
+                    }
+
+                    $deptContainers = $query->get();
+                    break;
+
+                case 'Ocean Export':
+                    $query = DB::table('ocean_export_containers as c')
+                        ->join('ocean_exports as oe', 'c.ocean_export_id', '=', 'oe.id')
+                        ->leftJoin('container_types as ct', 'c.container_type_id', '=', 'ct.id')
+                        ->select(
+                            'c.container_no',
+                            'ct.code as tp_sz',
+                            'oe.file_no',
+                            'oe.mbl_no',
+                            DB::raw('NULL as hbl_no'),
+                            'c.storage_start_date as start_date',
+                            'c.storage_end_date as end_date'
+                        );
+
+                    if ($partyType === 'customer') {
+                        $query->where('oe.dm_customer_id', $partyId);
+                    } else {
+                        $query->where('oe.oversea_agent_id', $partyId);
+                    }
+
+                    if ($officeId) {
+                        $query->where('oe.office_id', $officeId);
+                    }
+
+                    if ($showWithoutStartDate) {
+                        $query->where(function ($q) use ($dateFrom, $dateTo) {
+                            $q->whereNull('c.storage_start_date')
+                              ->orWhereBetween('c.storage_start_date', [$dateFrom, $dateTo]);
+                        });
+                    } else {
+                        $query->whereBetween('c.storage_start_date', [$dateFrom, $dateTo]);
+                    }
+
+                    $deptContainers = $query->get();
+                    break;
+
+                case 'Trucker':
+                    $query = DB::table('truck_shipment_containers as c')
+                        ->join('truck_shipments as ts', 'c.truck_shipment_id', '=', 'ts.id')
+                        ->leftJoin('container_types as ct', 'c.container_type_id', '=', 'ct.id')
+                        ->select(
+                            'c.container_no',
+                            'ct.code as tp_sz',
+                            'ts.file_no',
+                            DB::raw('NULL as mbl_no'),
+                            DB::raw('NULL as hbl_no'),
+                            'c.pickup_date as start_date',
+                            'c.empty_return_date as end_date'
+                        );
+
+                    if ($partyType === 'customer') {
+                        $query->where('ts.customer_id', $partyId);
+                    }
+
+                    if ($officeId) {
+                        $query->where('ts.office_id', $officeId);
+                    }
+
+                    if ($showWithoutStartDate) {
+                        $query->where(function ($q) use ($dateFrom, $dateTo) {
+                            $q->whereNull('c.pickup_date')
+                              ->orWhereBetween('c.pickup_date', [$dateFrom, $dateTo]);
+                        });
+                    } else {
+                        $query->whereBetween('c.pickup_date', [$dateFrom, $dateTo]);
+                    }
+
+                    $deptContainers = $query->get();
+                    break;
+            }
+
+            // Calculate storage days and add to main collection
+            foreach ($deptContainers as $container) {
+                $containerData = (array) $container;
+                
+                if ($containerData['start_date'] && $containerData['end_date']) {
+                    $start = Carbon::parse($containerData['start_date']);
+                    $end = Carbon::parse($containerData['end_date']);
+                    $days = $start->diffInDays($end);
+                    $containerData['storage_days'] = $days;
+                    $totalDays += $days;
+                } else {
+                    $containerData['storage_days'] = 0;
+                }
+
+                $containers[] = $containerData;
+            }
+        }
+
+        return view('report.container-storage-print', [
+            'containers' => $containers,
+            'totalDays' => $totalDays,
+            'partyName' => $partyName,
+            'officeName' => $officeName,
+            'departmentTypes' => $departmentTypes
+        ]);
+    }
 }
