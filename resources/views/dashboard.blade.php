@@ -1,7 +1,7 @@
 <x-layout>
     @push('styles')
     <style>
-        /* ========== DASHBOARD CUSTOM STYLES (MATCHING PICTURE 2) ========== */
+        /* ========== DASHBOARD CUSTOM STYLES ========== */
         .page-content {
             padding: 20px;
             background: #eef1f5;
@@ -28,6 +28,19 @@
             border-radius: 6px 6px 0 0;
             color: #2d3748;
             font-weight: 800;
+            font-size: 12px;
+        }
+
+        .portlet-title .caption {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .portlet-title .actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .dashboard-stat2 {
@@ -43,12 +56,13 @@
             align-items: center;
             text-align: center;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
 
         .dashboard-stat2:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.15);
         }
 
         /* Responsive KPI Row */
@@ -56,7 +70,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 20px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
         @media (max-width: 1200px) {
@@ -66,59 +80,24 @@
             .kpi-row { grid-template-columns: 1fr; }
         }
 
-        /* Side by Side Layout */
-        .side-by-side-row {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 25px;
-            align-items: stretch;
-        }
-
-        .side-navigation {
-            flex: 0 0 450px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .side-table {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .side-table .portlet.light {
-            flex: 1;
-            margin-bottom: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .side-table .table-responsive {
-            flex: 1;
-        }
-
-        @media (max-width: 1300px) {
-            .side-by-side-row { flex-direction: column; }
-            .side-navigation { flex: 1; width: 100%; }
-            .side-table .portlet.light { flex: none; }
-        }
-
-        /* Charts Row */
+        /* Charts Row - Improved Layout */
         .charts-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
             gap: 20px;
             margin-bottom: 25px;
-            align-items: stretch;
         }
 
-        .charts-row .portlet.light {
-            flex: 1;
-            margin-bottom: 0;
+        @media (max-width: 1200px) {
+            .charts-row { 
+                grid-template-columns: 1fr; 
+            }
         }
 
-        @media (max-width: 992px) {
-            .charts-row { flex-direction: column; }
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         /* Table Styles */
@@ -138,13 +117,18 @@
 
         .table-custom thead th {
             text-align: left;
-            padding: 10px 15px;
+            padding: 10px 12px;
             background: #fafbfc;
             color: #4b77be;
             font-weight: 800;
             text-transform: uppercase;
             border-bottom: 2px solid #eef1f5;
             letter-spacing: 0.3px;
+            font-size: 10px;
+        }
+
+        .table-custom tbody tr {
+            transition: background-color 0.2s ease;
         }
 
         .table-custom tbody tr:hover {
@@ -152,20 +136,34 @@
         }
 
         .table-custom tbody td {
-            padding: 12px 15px;
+            padding: 12px;
             border-bottom: 1px solid #f1f3f6;
             vertical-align: middle;
             color: #4a5568;
+            font-size: 11px;
+        }
+
+        .table-custom tbody td a {
+            color: #4b77be;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .table-custom tbody td a:hover {
+            color: #3a62a4;
+            text-decoration: underline;
         }
 
         /* Status Badges */
         .badge-status {
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 12px;
             color: #fff;
             font-size: 10px;
             font-weight: 700;
             display: inline-block;
+            white-space: nowrap;
         }
 
         .bg-pre-alert { background: #00827f; }
@@ -216,51 +214,178 @@
             box-shadow: 0 4px 8px rgba(75, 119, 190, 0.2);
         }
 
+        .btn-outline {
+            background: #fff;
+            color: #4b77be;
+            border: 1px solid #4b77be;
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .btn-outline:hover {
+            background: #4b77be;
+            color: #fff;
+        }
+
         /* Chart stats row */
-        .chart-stats-row { display: flex; justify-content: center; gap: 40px; padding: 15px; border-bottom: 1px solid #f1f3f6; margin-bottom: 15px; background: #fcfdfe; }
-        .chart-stat-item { text-align: center; }
-        .chart-stat-item h4 { margin: 0; font-size: 18px; font-weight: 700; color: #2d3748; }
-        .chart-stat-item h4.text-primary { color: #0ab39c; }
-        .chart-stat-item span { font-size: 11px; color: #718096; text-transform: uppercase; font-weight: 600; display: block; margin-top: 2px; }
+        .chart-stats-row { 
+            display: flex; 
+            justify-content: center; 
+            gap: 40px; 
+            padding: 15px; 
+            border-bottom: 1px solid #f1f3f6; 
+            margin-bottom: 10px; 
+            background: #fcfdfe; 
+            flex-wrap: wrap;
+        }
+        
+        .chart-stat-item { 
+            text-align: center; 
+            min-width: 100px;
+        }
+        
+        .chart-stat-item h4 { 
+            margin: 0; 
+            font-size: 20px; 
+            font-weight: 700; 
+            color: #2d3748; 
+        }
+        
+        .chart-stat-item h4.text-primary { 
+            color: #0ab39c; 
+        }
+        
+        .chart-stat-item span { 
+            font-size: 11px; 
+            color: #718096; 
+            text-transform: uppercase; 
+            font-weight: 600; 
+            display: block; 
+            margin-top: 4px; 
+        }
 
         /* Badge styling */
         .badge-subtle-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: inline-block; }
         .badge-subtle-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: inline-block; }
         .badge-subtle-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: inline-block; }
         .badge-subtle-info { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: inline-block; }
-        
-        .tasks-list { list-style: none; padding: 0; margin: 0; }
-        .task-item { display: flex; align-items: flex-start; padding: 12px 15px; border-bottom: 1px dashed #e2e8f0; }
-        .task-item:last-child { border-bottom: none; }
-        .task-item .task-checkbox { margin-top: 3px; margin-right: 12px; cursor: pointer; width: 14px !important; height: 14px !important; }
-        .task-item .task-label { font-size: 12px; color: #2d3748; flex: 1; cursor: pointer; font-weight: 500; text-align: left; }
-        .task-item .task-date { font-size: 11px; color: #a0aec0; margin-left: 10px; white-space: nowrap; font-weight: 500; }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f4f6;
+            border-top-color: #4b77be;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        /* Refresh Button */
+        .btn-refresh {
+            background: transparent;
+            border: none;
+            color: #718096;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-refresh:hover {
+            background: rgba(75, 119, 190, 0.1);
+            color: #4b77be;
+        }
+
+        .btn-refresh.loading {
+            pointer-events: none;
+        }
+
+        /* Avatar */
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Select Dropdown */
+        .select-period {
+            font-weight: 700;
+            color: #2d3748;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .select-period:hover {
+            border-color: #4b77be;
+        }
+
+        .select-period:focus {
+            outline: none;
+            border-color: #4b77be;
+            box-shadow: 0 0 0 2px rgba(75, 119, 190, 0.1);
+        }
     </style>
     @endpush
 
-    <div class="page-content">
+    <div class="page-content" x-data="dashboardApp()" x-init="init()">
         <!-- ═══ 1. KPI ROW ═══ -->
         <div class="kpi-row">
             @php
                 $kpiConfig = [
-                    ['label' => 'TOTAL PROFIT', 'val' => '$ ' . number_format($kpis['totalProfit'], 0), 'color' => '#4b77be', 'change' => $kpis['profitChangePercent']],
-                    ['label' => 'TOTAL VOLUME', 'val' => number_format($kpis['totalVolume']), 'color' => '#00827f', 'change' => $kpis['volumeChangePercent']],
-                    ['label' => 'NO. OF ACTIVE CUSTOMERS', 'val' => number_format($kpis['activeCustomers']), 'color' => '#d05454', 'change' => null],
-                    ['label' => 'NO. OF LOST CUSTOMERS', 'val' => number_format($kpis['lostCustomers']), 'color' => '#f2bc00', 'change' => null],
+                    ['label' => 'TOTAL PROFIT', 'val' => '$ ' . number_format($kpis['totalProfit'], 0), 'color' => '#4b77be', 'change' => $kpis['profitChangePercent'], 'key' => 'profit'],
+                    ['label' => 'TOTAL VOLUME', 'val' => number_format($kpis['totalVolume']), 'color' => '#00827f', 'change' => $kpis['volumeChangePercent'], 'key' => 'volume'],
+                    ['label' => 'NO. OF ACTIVE CUSTOMERS', 'val' => number_format($kpis['activeCustomers']), 'color' => '#d05454', 'change' => null, 'key' => 'customers'],
+                    ['label' => 'NO. OF LOST CUSTOMERS', 'val' => number_format($kpis['lostCustomers']), 'color' => '#f2bc00', 'change' => null, 'key' => 'lost'],
                 ];
             @endphp
             @foreach($kpiConfig as $kpi)
-            <div class="dashboard-stat2">
+            <div class="dashboard-stat2" style="border-top-color: {{ $kpi['color'] }};" @click="handleKpiClick('{{ $kpi['key'] }}')">
                 <div style="text-align: center;">
                     <small style="color: #8e9eae; font-weight: 700; font-size: 10px;">{{ $kpi['label'] }}</small>
-                    <h3 style="color: {{ $kpi['color'] }}; font-size: 24px; font-weight: 700; margin: 5px 0;">{{ $kpi['val'] }}</h3>
+                    <h3 style="color: {{ $kpi['color'] }}; font-size: 28px; font-weight: 700; margin: 8px 0;">{{ $kpi['val'] }}</h3>
                     <div style="font-size: 11px; color: #8e9eae;">
                         @if($kpi['change'] !== null)
-                            {{ $kpi['change'] >= 0 ? '+' : '' }}{{ $kpi['change'] }}%
+                            <span style="color: {{ $kpi['change'] >= 0 ? '#0ab39c' : '#ef4444' }}; font-weight: 700;">
+                                {{ $kpi['change'] >= 0 ? '↑' : '↓' }} {{ abs($kpi['change']) }}%
+                            </span>
+                            <br> 
+                            <small style="font-size: 10px;">vs. Previous Period</small>
                         @else
-                            --
+                            <span style="color: #cbd5e1;">--</span>
+                            <br>
+                            <small style="font-size: 10px;">Last 6 Months</small>
                         @endif
-                        <br> <small>Prev. : {{ number_format($kpis['prevProfit']) }}</small>
                     </div>
                 </div>
             </div>
@@ -268,9 +393,19 @@
         </div>
 
         <!-- ═══ 2. TO DO LIST ═══ -->
-        <div class="section-header"><i class="fa fa-list"></i> TO DO LIST</div>
+        <div class="section-header">
+            <i class="fa fa-list"></i> TO DO LIST
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+                <button class="btn-refresh" @click="refreshTodos()" :class="{ 'loading': todosLoading }">
+                    <i class="fa fa-refresh" :class="{ 'fa-spin': todosLoading }"></i>
+                </button>
+            </div>
+        </div>
         <div class="portlet light" style="padding:0; border-top: 3px solid #4b77be;">
-            <div class="table-responsive">
+            <div class="table-responsive" style="min-height: 200px; position: relative;">
+                <div x-show="todosLoading" style="position: absolute; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 10;">
+                    <div class="loading-spinner" style="width: 32px; height: 32px; border-width: 3px;"></div>
+                </div>
                 <table class="table-custom">
                     <thead>
                         <tr>
@@ -286,10 +421,10 @@
                     </thead>
                     <tbody>
                         @forelse($todos as $todo)
-                        <tr>
+                        <tr style="cursor: pointer;" @click="handleTodoClick('{{ $todo['file_no'] }}', '{{ strtolower(str_replace('Import', '-import', str_replace('Export', '-export', $todo['shipment_type']))) }}')">
                             <td><span class="badge-status {{ $todo['badgeClass'] }}">{{ $todo['task'] }}</span></td>
-                            <td><a href="/{{ strtolower(str_replace('Import', '-import', str_replace('Export', '-export', $todo['shipment_type']))) }}/list" style="color:#4b77be;">{{ $todo['file_no'] }}</a></td>
-                            <td>{{ $todo['eta'] }}</td>
+                            <td><a href="/{{ strtolower(str_replace('Import', '-import', str_replace('Export', '-export', $todo['shipment_type']))) }}/list" style="color:#4b77be; font-weight: 600;">{{ $todo['file_no'] }}</a></td>
+                            <td style="font-weight: 500;">{{ $todo['eta'] }}</td>
                             <td>{{ $todo['mbl'] }}</td>
                             <td>{{ $todo['hbl'] }}</td>
                             <td>{{ $todo['pod'] }}</td>
@@ -298,8 +433,8 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">
-                                <i class="fa fa-inbox" style="font-size:20px;display:block;margin-bottom:6px;"></i>
+                            <td colspan="8" class="empty-state">
+                                <i class="fa fa-inbox"></i>
                                 No pending tasks.
                             </td>
                         </tr>
@@ -309,18 +444,21 @@
             </div>
         </div>
 
-        <!-- ═══ 3. COMBINED SIDE SECTION ═══ -->
-
-
-        <!-- ═══ 4. INTERACTIVE CHARTS ═══ -->
-        <div class="charts-row" style="margin-bottom: 25px;">
+        <!-- ═══ 3. INTERACTIVE CHARTS ═══ -->
+        <div class="section-header">
+            <i class="fa fa-line-chart"></i> ANALYTICS DASHBOARD
+        </div>
+        
+        <div class="charts-row">
             <!-- Balance Overview -->
-            <div class="portlet light" style="flex: 2; border-top: 3px solid #3b82f6; display: flex; flex-direction: column;">
+            <div class="portlet light chart-container" style="border-top: 3px solid #3b82f6;">
                 <div class="portlet-title">
-                    <span style="font-size:12px; font-weight:700;"><i class="fa fa-line-chart"></i> BALANCE OVERVIEW</span>
-                    <div style="font-size:11px; color:#718096; font-weight:normal;">
-                        Sort by:
-                        <select id="balance-period" onchange="reloadBalanceChart(this.value)" style="font-weight:700; color:#2d3748; background:transparent; border:1px solid #e2e8f0; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">
+                    <div class="caption">
+                        <i class="fa fa-line-chart"></i>
+                        <span>BALANCE OVERVIEW</span>
+                    </div>
+                    <div class="actions">
+                        <select id="balance-period" @change="reloadBalanceChart($event.target.value)" class="select-period">
                             <option value="3">Last 3 Months</option>
                             <option value="6" selected>Last 6 Months</option>
                             <option value="12">Last 12 Months</option>
@@ -330,11 +468,11 @@
                 </div>
                 <div class="chart-stats-row" id="balance-stats-row">
                     <div class="chart-stat-item">
-                        <h4 class="text-primary">${{ round($balanceChart['totalRevenue'] / 1000, 1) }}k</h4>
+                        <h4 class="text-primary">${{ number_format($balanceChart['totalRevenue'] / 1000, 1) }}k</h4>
                         <span>Revenue</span>
                     </div>
                     <div class="chart-stat-item" style="border-left: 1px solid #edf2f7; padding-left: 30px;">
-                        <h4>${{ round($balanceChart['totalExpenses'] / 1000, 1) }}k</h4>
+                        <h4>${{ number_format($balanceChart['totalExpenses'] / 1000, 1) }}k</h4>
                         <span>Expenses</span>
                     </div>
                     <div class="chart-stat-item" style="border-left: 1px solid #edf2f7; padding-left: 30px;">
@@ -342,18 +480,20 @@
                         <span>Profit Ratio</span>
                     </div>
                 </div>
-                <div style="padding: 10px 15px; flex: 1;">
-                    <div id="balance-overview-chart" style="min-height: 290px;"></div>
+                <div style="padding: 15px; flex: 1;">
+                    <div id="balance-overview-chart" style="min-height: 300px; height: 300px;"></div>
                 </div>
             </div>
 
             <!-- Sales Forecast -->
-            <div class="portlet light" style="flex: 1; border-top: 3px solid #8b5cf6; display: flex; flex-direction: column;">
+            <div class="portlet light chart-container" style="border-top: 3px solid #8b5cf6; overflow: hidden;">
                 <div class="portlet-title">
-                    <span style="font-size:12px; font-weight:700;"><i class="fa fa-bar-chart"></i> SALES FORECAST</span>
-                    <div style="font-size:11px; color:#718096; font-weight:normal;">
-                        Sort by:
-                        <select id="forecast-period" onchange="reloadForecastChart(this.value)" style="font-weight:700; color:#2d3748; background:transparent; border:1px solid #e2e8f0; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">
+                    <div class="caption">
+                        <i class="fa fa-bar-chart"></i>
+                        <span>SALES FORECAST</span>
+                    </div>
+                    <div class="actions">
+                        <select id="forecast-period" @change="reloadForecastChart($event.target.value)" class="select-period">
                             <option value="3">Last 3 Months</option>
                             <option value="6">Last 6 Months</option>
                             <option value="12" selected>Last 12 Months</option>
@@ -361,16 +501,26 @@
                         </select>
                     </div>
                 </div>
-                <div style="padding: 20px 15px; flex: 1;">
-                    <div id="sales-forecast-chart" style="min-height: 320px;"></div>
+                <div style="padding: 15px 15px 0 15px; flex: 1; overflow: hidden;">
+                    <div id="sales-forecast-chart" style="width: 100%; height: 350px;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- ═══ 5. TASKS STATUS TABLE ═══ -->
-        <div class="section-header"><i class="fa fa-check-circle"></i> TASKS STATUS</div>
+        <!-- ═══ 4. TASKS STATUS TABLE ═══ -->
+        <div class="section-header">
+            <i class="fa fa-check-circle"></i> TASKS STATUS
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+                <button class="btn-refresh" @click="refreshTasks()" :class="{ 'loading': tasksLoading }">
+                    <i class="fa fa-refresh" :class="{ 'fa-spin': tasksLoading }"></i>
+                </button>
+            </div>
+        </div>
         <div class="portlet light" style="padding:0; border-top: 3px solid #10b981; margin-bottom: 30px;">
-            <div class="table-responsive">
+            <div class="table-responsive" style="min-height: 200px; position: relative;">
+                <div x-show="tasksLoading" style="position: absolute; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 10;">
+                    <div class="loading-spinner" style="width: 32px; height: 32px; border-width: 3px;"></div>
+                </div>
                 <table class="table-custom">
                     <thead>
                         <tr>
@@ -383,24 +533,24 @@
                     </thead>
                     <tbody>
                         @forelse($tasks as $task)
-                        <tr>
+                        <tr style="cursor: pointer;" @click="handleTaskClick('{{ $task['name'] }}')">
                             <td style="font-weight: 600; color:#2d3748;">{{ $task['name'] }}</td>
-                            <td>{{ $task['last_contacted'] }}</td>
+                            <td style="font-weight: 500;">{{ $task['last_contacted'] }}</td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($task['sales_rep_name']) }}&background=4f46e5&color=fff&size=24" alt="{{ $task['sales_rep_name'] }}" style="width:24px; height:24px; border-radius:50%;">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($task['sales_rep_name']) }}&background=4f46e5&color=fff&size=28" alt="{{ $task['sales_rep_name'] }}" class="avatar">
                                     <span style="font-weight:500;">{{ $task['sales_rep_name'] }}</span>
                                 </div>
                             </td>
                             <td><span class="{{ $task['badgeClass'] }}">{{ $task['status'] }}</span></td>
-                            <td style="font-weight: 700; color: {{ $task['dealColor'] }};">
+                            <td style="font-weight: 700; color: {{ $task['dealColor'] }}; font-size: 12px;">
                                 ${{ number_format($task['deal_value'] / 1000, 1) }}K
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" style="text-align:center; padding:30px 10px; color:#94a3b8;">
-                                <i class="fa fa-inbox" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+                            <td colspan="5" class="empty-state">
+                                <i class="fa fa-inbox"></i>
                                 No leads found. Create a lead to see tasks here.
                             </td>
                         </tr>
@@ -414,135 +564,344 @@
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // 1. Balance Overview Area Chart
-            var balanceOptions = {
-                series: [{
-                    name: 'Revenue',
-                    data: [{{ implode(',', $balanceChart['revenueData']) }}]
-                }, {
-                    name: 'Expenses',
-                    data: [{{ implode(',', $balanceChart['expenseData']) }}]
-                }],
-                chart: {
-                    id: 'balance-chart',
-                    height: 290,
-                    type: 'area',
-                    toolbar: { show: false },
-                    fontFamily: 'Inter, sans-serif',
-                    animations: { dynamicAnimation: { speed: 300 } }
-                },
-                colors: ['#0ab39c', '#f06548'],
-                dataLabels: { enabled: false },
-                stroke: { curve: 'smooth', width: 2 },
-                fill: {
-                    type: 'gradient',
-                    gradient: { shadeIntensity: 1, opacityFrom: 0.15, opacityTo: 0.02, stops: [0, 90, 100] }
-                },
-                xaxis: {
-                    categories: ['{{ implode("','", $balanceChart['months']) }}'],
-                    axisBorder: { show: false },
-                    axisTicks: { show: false }
-                },
-                yaxis: {
-                    labels: { formatter: function (v) { return "$" + v.toFixed(1) + "k"; } }
-                },
-                grid: { borderColor: '#f1f3f6', strokeDashArray: 3 },
-                tooltip: { y: { formatter: function (v) { return "$" + v.toFixed(2); } } }
-            };
+        function dashboardApp() {
+            return {
+                todosLoading: false,
+                tasksLoading: false,
+                balanceChart: null,
+                forecastChart: null,
 
-            var balanceChart = new ApexCharts(document.querySelector("#balance-overview-chart"), balanceOptions);
-            balanceChart.render();
+                init() {
+                    this.initCharts();
+                },
 
-            // 2. Sales Forecast Bar/Column Chart
-            var forecastOptions = {
-                series: [{
-                    name: 'Goal',
-                    data: [{{ $forecastChart['goal'] }}]
-                }, {
-                    name: 'Pending Forecast',
-                    data: [{{ $forecastChart['pendingForecast'] }}]
-                }, {
-                    name: 'Revenue',
-                    data: [{{ $forecastChart['revenue'] }}]
-                }],
-                chart: {
-                    id: 'forecast-chart',
-                    height: 320,
-                    type: 'bar',
-                    toolbar: { show: false },
-                    fontFamily: 'Inter, sans-serif',
-                    animations: { dynamicAnimation: { speed: 300 } }
+                handleKpiClick(key) {
+                    console.log('KPI clicked:', key);
+                    // Add navigation or drill-down functionality here
                 },
-                colors: ['#405189', '#0ab39c', '#f7b84b'],
-                plotOptions: {
-                    bar: { horizontal: false, columnWidth: '40%', endingShape: 'rounded' }
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: function (v) { return "$" + (v / 1000).toFixed(1) + "k"; },
-                    style: { fontSize: '11px', colors: ['#fff'] }
-                },
-                stroke: { show: true, width: 2, colors: ['transparent'] },
-                xaxis: {
-                    categories: ['{{ $forecastChart['categories'][0] }}'],
-                    axisBorder: { show: false },
-                    axisTicks: { show: false }
-                },
-                yaxis: {
-                    title: { text: 'Value ($)' },
-                    labels: { formatter: function (v) { return "$" + (v / 1000).toFixed(0) + "k"; } }
-                },
-                fill: { opacity: 1 },
-                grid: { borderColor: '#f1f3f6', strokeDashArray: 3 },
-                legend: { position: 'bottom', horizontalAlign: 'center' }
-            };
 
-            var forecastChart = new ApexCharts(document.querySelector("#sales-forecast-chart"), forecastOptions);
-            forecastChart.render();
-        });
+                handleTodoClick(fileNo, type) {
+                    console.log('Todo clicked:', fileNo, type);
+                    window.location.href = `/${type}/list`;
+                },
 
-        function reloadBalanceChart(period) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/dashboard/chart-data?type=balance&period=' + period, true);
-            xhr.setRequestHeader('Accept', 'application/json');
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    var data = JSON.parse(xhr.responseText);
-                    ApexCharts.exec('balance-chart', 'updateOptions', {
-                        series: [
-                            { name: 'Revenue', data: data.revenueData },
-                            { name: 'Expenses', data: data.expenseData }
-                        ],
-                        xaxis: { categories: data.months }
-                    });
-                    // Update stats row
-                    var statsRow = document.getElementById('balance-stats-row');
-                    if (statsRow) {
-                        statsRow.innerHTML = '<div class="chart-stat-item"><h4 class="text-primary">$' + (data.totalRevenue / 1000).toFixed(1) + 'k</h4><span>Revenue</span></div><div class="chart-stat-item" style="border-left:1px solid #edf2f7;padding-left:30px;"><h4>$' + (data.totalExpenses / 1000).toFixed(1) + 'k</h4><span>Expenses</span></div><div class="chart-stat-item" style="border-left:1px solid #edf2f7;padding-left:30px;"><h4 style="color:#f59e0b;">' + data.profitRatio + '%</h4><span>Profit Ratio</span></div>';
+                handleTaskClick(name) {
+                    console.log('Task clicked:', name);
+                    // Navigate to quotation or customer detail
+                },
+
+                async refreshTodos() {
+                    this.todosLoading = true;
+                    try {
+                        // Simulate API call - replace with actual endpoint
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        location.reload(); // Temporary - replace with AJAX
+                    } catch (error) {
+                        console.error('Error refreshing todos:', error);
+                    } finally {
+                        this.todosLoading = false;
+                    }
+                },
+
+                async refreshTasks() {
+                    this.tasksLoading = true;
+                    try {
+                        // Simulate API call - replace with actual endpoint
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        location.reload(); // Temporary - replace with AJAX
+                    } catch (error) {
+                        console.error('Error refreshing tasks:', error);
+                    } finally {
+                        this.tasksLoading = false;
+                    }
+                },
+
+                initCharts() {
+                    this.initBalanceChart();
+                    this.initForecastChart();
+                },
+
+                initBalanceChart() {
+                    var options = {
+                        series: [{
+                            name: 'Revenue',
+                            data: [{{ implode(',', $balanceChart['revenueData']) }}]
+                        }, {
+                            name: 'Expenses',
+                            data: [{{ implode(',', $balanceChart['expenseData']) }}]
+                        }],
+                        chart: {
+                            id: 'balance-chart',
+                            height: 300,
+                            type: 'area',
+                            toolbar: { show: false },
+                            fontFamily: 'Inter, -apple-system, sans-serif',
+                            animations: {
+                                enabled: true,
+                                easing: 'easeinout',
+                                speed: 800,
+                                dynamicAnimation: { speed: 300 }
+                            }
+                        },
+                        colors: ['#0ab39c', '#f06548'],
+                        dataLabels: { enabled: false },
+                        stroke: { 
+                            curve: 'smooth', 
+                            width: 3 
+                        },
+                        fill: {
+                            type: 'gradient',
+                            gradient: {
+                                shadeIntensity: 1,
+                                opacityFrom: 0.4,
+                                opacityTo: 0.05,
+                                stops: [0, 90, 100]
+                            }
+                        },
+                        xaxis: {
+                            categories: [{!! "'" . implode("','", $balanceChart['months']) . "'" !!}],
+                            axisBorder: { show: false },
+                            axisTicks: { show: false },
+                            labels: {
+                                style: {
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    colors: '#718096'
+                                }
+                            }
+                        },
+                        yaxis: {
+                            labels: {
+                                formatter: function (val) {
+                                    return "$" + val.toFixed(1) + "k";
+                                },
+                                style: {
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    colors: '#718096'
+                                }
+                            }
+                        },
+                        grid: {
+                            borderColor: '#f1f3f6',
+                            strokeDashArray: 3,
+                            padding: {
+                                top: 0,
+                                right: 10,
+                                bottom: 0,
+                                left: 10
+                            }
+                        },
+                        tooltip: {
+                            y: {
+                                formatter: function (val) {
+                                    return "$" + val.toFixed(2) + "k";
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            horizontalAlign: 'right',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            markers: {
+                                width: 12,
+                                height: 12,
+                                radius: 3
+                            }
+                        }
+                    };
+
+                    this.balanceChart = new ApexCharts(document.querySelector("#balance-overview-chart"), options);
+                    this.balanceChart.render();
+                },
+
+                initForecastChart() {
+                    // Destroy existing chart if it exists
+                    if (this.forecastChart) {
+                        this.forecastChart.destroy();
+                    }
+
+                    var goalValue = {{ $forecastChart['goal'] }};
+                    var pendingValue = {{ $forecastChart['pendingForecast'] }};
+                    var revenueValue = {{ $forecastChart['revenue'] }};
+
+                    var options = {
+                        series: [{
+                            name: 'Goal',
+                            data: [goalValue]
+                        }, {
+                            name: 'Pending Forecast',
+                            data: [pendingValue]
+                        }, {
+                            name: 'Revenue',
+                            data: [revenueValue]
+                        }],
+                        chart: {
+                            id: 'forecast-chart',
+                            height: 350,
+                            type: 'bar',
+                            toolbar: { show: false },
+                            fontFamily: 'Inter, -apple-system, sans-serif',
+                            parentHeightOffset: 0
+                        },
+                        colors: ['#405189', '#0ab39c', '#f7b84b'],
+                        plotOptions: {
+                            bar: {
+                                horizontal: false,
+                                columnWidth: '70%',
+                                endingShape: 'rounded',
+                                borderRadius: 6
+                            }
+                        },
+                        dataLabels: {
+                            enabled: false
+                        },
+                        stroke: {
+                            show: false
+                        },
+                        xaxis: {
+                            categories: ['Total Forecasted Value'],
+                            axisBorder: { show: false },
+                            axisTicks: { show: false },
+                            labels: {
+                                style: {
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    colors: '#64748b'
+                                }
+                            }
+                        },
+                        yaxis: {
+                            labels: {
+                                formatter: function (val) {
+                                    if (val === 0) return '$0';
+                                    return "$" + (val / 1000).toFixed(0) + "k";
+                                },
+                                style: {
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    colors: '#94a3b8'
+                                }
+                            }
+                        },
+                        fill: { 
+                            opacity: 1
+                        },
+                        grid: {
+                            show: true,
+                            borderColor: '#f1f5f9',
+                            strokeDashArray: 4,
+                            xaxis: {
+                                lines: { show: false }
+                            },
+                            padding: {
+                                top: 0,
+                                right: 15,
+                                bottom: 0,
+                                left: 10
+                            }
+                        },
+                        legend: {
+                            show: true,
+                            position: 'bottom',
+                            horizontalAlign: 'center',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            markers: {
+                                width: 12,
+                                height: 12,
+                                radius: 3
+                            },
+                            itemMargin: {
+                                horizontal: 12,
+                                vertical: 8
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            y: {
+                                formatter: function (val) {
+                                    return "$" + val.toLocaleString();
+                                },
+                                title: {
+                                    formatter: function (seriesName) {
+                                        return seriesName + ': ';
+                                    }
+                                }
+                            },
+                            marker: {
+                                show: true
+                            }
+                        }
+                    };
+
+                    var chartElement = document.querySelector("#sales-forecast-chart");
+                    if (chartElement) {
+                        // Clear any existing content
+                        chartElement.innerHTML = '';
+                        this.forecastChart = new ApexCharts(chartElement, options);
+                        this.forecastChart.render();
+                    }
+                },
+
+                async reloadBalanceChart(period) {
+                    try {
+                        const response = await fetch(`/dashboard/chart-data?type=balance&period=${period}`);
+                        if (!response.ok) throw new Error('Failed to fetch chart data');
+                        
+                        const data = await response.json();
+                        
+                        ApexCharts.exec('balance-chart', 'updateOptions', {
+                            series: [
+                                { name: 'Revenue', data: data.revenueData },
+                                { name: 'Expenses', data: data.expenseData }
+                            ],
+                            xaxis: { categories: data.months }
+                        });
+
+                        // Update stats row
+                        const statsRow = document.getElementById('balance-stats-row');
+                        if (statsRow) {
+                            statsRow.innerHTML = `
+                                <div class="chart-stat-item">
+                                    <h4 class="text-primary">$${(data.totalRevenue / 1000).toFixed(1)}k</h4>
+                                    <span>Revenue</span>
+                                </div>
+                                <div class="chart-stat-item" style="border-left:1px solid #edf2f7;padding-left:30px;">
+                                    <h4>$${(data.totalExpenses / 1000).toFixed(1)}k</h4>
+                                    <span>Expenses</span>
+                                </div>
+                                <div class="chart-stat-item" style="border-left:1px solid #edf2f7;padding-left:30px;">
+                                    <h4 style="color:#f59e0b;">${data.profitRatio}%</h4>
+                                    <span>Profit Ratio</span>
+                                </div>
+                            `;
+                        }
+                    } catch (error) {
+                        console.error('Error reloading balance chart:', error);
+                    }
+                },
+
+                async reloadForecastChart(period) {
+                    try {
+                        const response = await fetch(`/dashboard/chart-data?type=forecast&period=${period}`);
+                        if (!response.ok) throw new Error('Failed to fetch chart data');
+                        
+                        const data = await response.json();
+                        
+                        ApexCharts.exec('forecast-chart', 'updateOptions', {
+                            series: [
+                                { name: 'Goal', data: [data.goal] },
+                                { name: 'Pending Forecast', data: [data.pendingForecast] },
+                                { name: 'Revenue', data: [data.revenue] }
+                            ]
+                        });
+                    } catch (error) {
+                        console.error('Error reloading forecast chart:', error);
                     }
                 }
             };
-            xhr.send();
-        }
-
-        function reloadForecastChart(period) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/dashboard/chart-data?type=forecast&period=' + period, true);
-            xhr.setRequestHeader('Accept', 'application/json');
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    var data = JSON.parse(xhr.responseText);
-                    ApexCharts.exec('forecast-chart', 'updateOptions', {
-                        series: [
-                            { name: 'Goal', data: [data.goal] },
-                            { name: 'Pending Forecast', data: [data.pendingForecast] },
-                            { name: 'Revenue', data: [data.revenue] }
-                        ]
-                    });
-                }
-            };
-            xhr.send();
         }
     </script>
     @endpush
