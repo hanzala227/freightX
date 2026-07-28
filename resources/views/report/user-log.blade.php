@@ -16,6 +16,63 @@
         .filter-group label { font-size: 9px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; }
         .filter-group input, .filter-group select { height: 22px; padding: 0 6px; border: 1px solid #93c5fd; font-size: 10px; border-radius: 2px; background: #fff; outline: none; }
         .filter-group input:focus, .filter-group select:focus { border-color: #3b82f6; box-shadow: 0 0 0 1px rgba(59,130,246,0.2); }
+        
+        /* Toast Notification Styles */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #fff;
+            padding: 12px 18px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 9999;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .toast-notification i {
+            font-size: 16px;
+        }
+        
+        .toast-notification.toast-success {
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        
+        .toast-notification.toast-success i {
+            color: #10b981;
+        }
+        
+        .toast-notification.toast-error {
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        .toast-notification.toast-error i {
+            color: #ef4444;
+        }
+        
+        .toast-notification.toast-info {
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        
+        .toast-notification.toast-info i {
+            color: #3b82f6;
+        }
+        
         @media print {
             .no-print { display: none !important; }
             .loading-overlay { display: none !important; }
@@ -248,11 +305,14 @@
                     if (this.filters.user_id) params.append('user_id', this.filters.user_id);
 
                     const resp = await fetch('{{ route("report.user-log.data") }}?' + params.toString());
+                    if (!resp.ok) throw new Error('Failed to fetch data');
+                    
                     const json = await resp.json();
                     this.rows = json.rows;
                     this.pagination = json.pagination;
                 } catch (e) {
                     console.error('Fetch error:', e);
+                    this.showToast('Failed to load data. Please try again.', 'error');
                 } finally {
                     this.loading = false;
                 }
@@ -287,6 +347,7 @@
                 this.filters.date_to = this.toLocalDateStr(today);
                 this.filters.page = 1;
                 this.fetchData();
+                this.showToast('Date range updated to ' + range, 'info');
             },
 
             resetFilters() {
@@ -298,6 +359,7 @@
                 this.quickRange = 'all';
                 this.filters.page = 1;
                 this.fetchData();
+                this.showToast('Filters cleared', 'info');
             },
 
             sort(field) {
@@ -343,18 +405,98 @@
                 return 'Showing ' + from + ' to ' + to + ' of ' + total + ' records';
             },
 
-            printReport() { window.print(); },
+            async printReport() { 
+                this.showToast('Generating print report...', 'info');
+                
+                try {
+                    // Fetch all data (no pagination) for print
+                    const params = new URLSearchParams();
+                    params.append('date_from', this.filters.date_from);
+                    params.append('date_to', this.filters.date_to);
+                    params.append('page', 1);
+                    params.append('per_page', 10000);
+                    params.append('sort_by', this.filters.sort_by);
+                    params.append('sort_dir', this.filters.sort_dir);
+                    if (this.filters.user_id) params.append('user_id', this.filters.user_id);
 
-            exportExcel() {
-                let csv = '#,User ID,First Name,Last Name,Office,Login,Logout,Duration,Active,Inactive,Active Duration\n';
-                this.rows.forEach((r, i) => {
-                    csv += `${i + 1},"${r.user_code}","${r.first_name}","${r.last_name || ''}","${r.office || ''}","${r.login}","${r.logout || ''}","${r.duration}","${r.active}","${r.inactive}","${r.active_duration}"\n`;
-                });
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'user-log-report.csv'; a.click();
-                URL.revokeObjectURL(url);
+                    // Open print view in new window
+                    const printUrl = '{{ route("report.user-log.print") }}?' + params.toString();
+                    window.open(printUrl, '_blank');
+                    
+                    this.showToast('Print report opened in new window', 'success');
+                } catch (e) {
+                    console.error('Print error:', e);
+                    this.showToast('Failed to generate print report', 'error');
+                }
+            },
+
+            async exportExcel() {
+                this.showToast('Generating Excel file...', 'info');
+                
+                try {
+                    // Fetch all data (no pagination) for export
+                    const params = new URLSearchParams();
+                    params.append('date_from', this.filters.date_from);
+                    params.append('date_to', this.filters.date_to);
+                    params.append('page', 1);
+                    params.append('per_page', 10000);
+                    params.append('sort_by', this.filters.sort_by);
+                    params.append('sort_dir', this.filters.sort_dir);
+                    if (this.filters.user_id) params.append('user_id', this.filters.user_id);
+
+                    const resp = await fetch('{{ route("report.user-log.data") }}?' + params.toString());
+                    if (!resp.ok) throw new Error('Failed to fetch data');
+                    
+                    const json = await resp.json();
+                    const allRows = json.rows;
+                    
+                    // Generate CSV
+                    let csv = '#,User ID,First Name,Last Name,Office,Login,Logout,Duration,Active,Inactive,Active Duration\n';
+                    allRows.forEach((r, i) => {
+                        csv += `${i + 1},"${r.user_code || ''}","${r.first_name || ''}","${r.last_name || ''}","${r.office || ''}","${r.login || ''}","${r.logout || ''}","${r.duration || ''}","${r.active || ''}","${r.inactive || ''}","${r.active_duration || ''}"\n`;
+                    });
+                    
+                    // Download
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'user-log-report-' + new Date().toISOString().split('T')[0] + '.csv';
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    this.showToast('Excel file downloaded successfully! (' + allRows.length + ' records)', 'success');
+                } catch (e) {
+                    console.error('Export error:', e);
+                    this.showToast('Failed to export data. Please try again.', 'error');
+                }
+            },
+
+            showToast(message, type = 'info') {
+                // Remove existing toasts
+                const existingToast = document.querySelector('.toast-notification');
+                if (existingToast) existingToast.remove();
+
+                // Create toast element
+                const toast = document.createElement('div');
+                toast.className = 'toast-notification toast-' + type;
+                toast.innerHTML = `
+                    <i class="fa fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                `;
+                document.body.appendChild(toast);
+
+                // Show toast with animation
+                setTimeout(() => toast.classList.add('show'), 10);
+
+                // Auto hide after 3 seconds
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
             },
         };
     }

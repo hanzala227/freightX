@@ -825,6 +825,33 @@ class ReportController extends Controller
         ]);
     }
 
+    public function userLogPrint(Request $request)
+    {
+        // Reuse the same logic but without pagination
+        $request->merge(['page' => 1, 'per_page' => 10000]);
+        $resp = $this->userLogData($request);
+        $data = json_decode($resp->getContent(), true);
+        $rows = $data['rows'] ?? [];
+        
+        $dateFrom = $request->input('date_from', Carbon::now()->subDays(30)->format('Y-m-d'));
+        $dateTo = $request->input('date_to', Carbon::now()->format('Y-m-d'));
+        $userId = $request->input('user_id');
+        
+        $userName = 'All Users';
+        if ($userId) {
+            $user = User::find($userId);
+            $userName = $user ? $user->name : 'All Users';
+        }
+        
+        return view('report.user-log-print', [
+            'rows' => $rows,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'userName' => $userName,
+            'totalRecords' => count($rows)
+        ]);
+    }
+
     public function shipmentReportDownload(Request $request)
     {
         $request->merge(['sort_by' => 'post_date', 'sort_dir' => 'desc', 'page' => '1', 'per_page' => '10000']);

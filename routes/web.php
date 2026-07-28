@@ -775,6 +775,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/employee-performance/data', [\App\Http\Controllers\ReportController::class, 'employeePerformanceData'])->name('report.employee-performance.data');
         Route::get('/user-log', [\App\Http\Controllers\ReportController::class, 'userLog'])->name('report.user-log');
         Route::get('/user-log/data', [\App\Http\Controllers\ReportController::class, 'userLogData'])->name('report.user-log.data');
+        Route::get('/user-log/print', [\App\Http\Controllers\ReportController::class, 'userLogPrint'])->name('report.user-log.print');
         Route::get('/shipment', [\App\Http\Controllers\ReportController::class, 'shipmentReport'])->name('report.shipment');
         Route::get('/shipment/data', [\App\Http\Controllers\ReportController::class, 'shipmentReportData'])->name('report.shipment.data');
         Route::get('/shipment/download', [\App\Http\Controllers\ReportController::class, 'shipmentReportDownload'])->name('report.shipment.download');
